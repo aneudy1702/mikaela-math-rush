@@ -22,12 +22,12 @@ import {
 import { CORE_FACTS, getFact } from '../content/multiplication'
 import { getCurriculum, getLevel } from '../curriculum'
 import {
+  applyAttemptToEvidence,
   countedFlags,
   emptyFactEvidence,
   evaluateTableLevel,
   factStatus,
   levelAllowance,
-  rebuildEvidence,
 } from './advancement'
 import { applyAttempt, emptyFactRecord } from './mastery'
 
@@ -444,8 +444,12 @@ export interface InferenceLoadContext {
 }
 
 /**
- * D5b start-level inference from raw-log attempts at most inferenceMaxAgeDays old at
- * `nowMs`, recomputed under D2 rules. Never reads v1 mastery scores. Pass
+ * D5b start-level inference from raw-log attempts within inferenceMaxAgeDays **of
+ * migration** (`anchor = profile.migration?.migratedAtMs ?? nowMs`; only attempts with
+ * anchor − 30 days ≤ atMs ≤ anchor), recomputed under D2 rules. For a migrated profile the
+ * result does not depend on when it runs, and v2 attempts after migration (live play,
+ * placement) are excluded. Counted-ness (same-session-miss rule) is computed over the full
+ * raw log first, then the window is applied. Never reads v1 mastery scores. Pass
  * `store.lastLoad()` as `load`: a damaged raw log on a not-yet-rebuilt profile
  * (`evidenceStaleWithDamagedLog`) makes the result insufficient.
  */
@@ -454,10 +458,18 @@ export function inferStartLevel(
   nowMs: number = Date.now(),
   load?: InferenceLoadContext | null,
 ): StartLevelInference {
-  const cutoff = nowMs - RULES.inferenceMaxAgeDays * DAY_MS
-  const attempts = profile.rawLog.attempts.filter(
-    (x) => x.atMs >= cutoff && x.atMs <= nowMs,
-  )
+  const anchor = profile.migration?.migratedAtMs ?? nowMs
+  const cutoff = anchor - RULES.inferenceMaxAgeDays * DAY_MS
+  const all = profile.rawLog.attempts
+  const allFlags = countedFlags(all)
+  const inWindow = (x: RawAttempt) => x.atMs >= cutoff && x.atMs <= anchor
+  const attempts: RawAttempt[] = []
+  const countedInWindow: boolean[] = []
+  all.forEach((x, i) => {
+    if (!inWindow(x)) return
+    attempts.push(x)
+    countedInWindow.push(allFlags[i]!)
+  })
 
   if (load?.quarantine?.evidenceStaleWithDamagedLog) {
     return {
@@ -469,14 +481,17 @@ export function inferStartLevel(
     }
   }
 
-  // D2 recompute over the windowed raw log only (fast-track needs a live session; rule (b) does not).
-  const rebuilt = rebuildEvidence(
-    { attempts, sessions: profile.rawLog.sessions },
-    { ...profile.progress, factEvidence: {}, evidence: {} },
-  )
-  const ev = rebuilt.factEvidence
-  const flags = countedFlags(attempts)
-  const counted = attempts.filter((_, i) => flags[i])
+  // D2 recompute over the windowed attempts with counted flags from the full log
+  // (fast-track needs a live session; rule (b) does not). Caches are not read.
+  const ev: Record<string, FactEvidence> = {}
+  attempts.forEach((x, i) => {
+    ev[x.factId] = applyAttemptToEvidence(
+      ev[x.factId] ?? emptyFactEvidence(x.factId),
+      x,
+      countedInWindow[i]!,
+    )
+  })
+  const counted = attempts.filter((_, i) => countedInWindow[i])
 
   const tableLevels = getCurriculum().levels.filter((l) => l.kind === 'table')
   const verdicts: LevelInferenceVerdict[] = tableLevels.map((level) => {
@@ -541,6 +556,7 @@ export function inferStartLevel(
 export function applyStartLevelInference(
   profile: LearnerProfile,
   inference: StartLevelInference,
+  nowMs: number = Date.now(),
 ): LearnerProfile {
   if (inference.outcome !== 'recommend' || inference.recommendedLevelId === null) {
     return profile
@@ -554,6 +570,7 @@ export function applyStartLevelInference(
   }
   return {
     ...profile,
+    updatedAtMs: nowMs,
     progress: {
       ...progress,
       currentLevelId: s,
@@ -583,8 +600,28 @@ export interface DropDownOffer {
  * or inference-recommended start level have draw accuracy < `RULES.dropDownOfferAccuracy`,
  * offer (never force) the level below. Never at L1. Only while that level is current.
  * The placement start wins over the inferred start when both exist (the warm-up is the
- * later recalibration). Pure; the UI decides whether to show it and persists dismissal.
+ * later recalibration). Only play sessions started at or after the moment that start was
+ * set count, so a retake resets the "first 2 sessions": for a placement start that is the
+ * latest placement session's end (or latest `placement` attempt, whichever is later); for
+ * an inferred start it is `migration.migratedAtMs`. When no such marker survives in the
+ * log (e.g. evicted), every session at the start level counts.
+ * Pure; the UI decides whether to show it and persists dismissal.
  */
+/** When the current recommended start level was set (-Infinity when unknown). */
+function startSetAtMs(profile: LearnerProfile): number {
+  if (profile.progress.placementStartLevelId === undefined) {
+    return profile.migration?.migratedAtMs ?? Number.NEGATIVE_INFINITY
+  }
+  let at = Number.NEGATIVE_INFINITY
+  for (const s of profile.rawLog.sessions) {
+    if (s.kind === 'placement') at = Math.max(at, s.endedAtMs ?? s.startedAtMs)
+  }
+  for (const x of profile.rawLog.attempts) {
+    if (x.source === 'placement') at = Math.max(at, x.atMs)
+  }
+  return at
+}
+
 export function dropDownOffer(profile: LearnerProfile): DropDownOffer {
   const progress = profile.progress
   const start = progress.placementStartLevelId ?? progress.inferredStartLevelId ?? null
@@ -599,9 +636,14 @@ export function dropDownOffer(profile: LearnerProfile): DropDownOffer {
   const startIndex = levelIndexOf(start)
   if (startIndex <= 1 || progress.currentLevelId !== start) return none
 
+  const since = startSetAtMs(profile)
   const first = profile.rawLog.sessions
     .filter(
-      (s) => s.kind === 'play' && s.endReason === 'finished' && s.levelId === start,
+      (s) =>
+        s.kind === 'play' &&
+        s.endReason === 'finished' &&
+        s.levelId === start &&
+        s.startedAtMs >= since,
     )
     .sort((x, y) => x.startedAtMs - y.startedAtMs)
     .slice(0, RULES.dropDownOfferSessions)

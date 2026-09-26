@@ -525,3 +525,95 @@ describe('dropDownOffer (D4)', () => {
     expect(dropDownOffer(inferred).offer).toBe(true)
   })
 })
+
+// ---- verifier follow-ups ---------------------------------------------------------------
+
+function migrated(profile: LearnerProfile, migratedAtMs: number): LearnerProfile {
+  return {
+    ...profile,
+    migration: {
+      fromVersion: 1,
+      migratedAtMs,
+      v1Attempts: 0,
+      migratedAttempts: 0,
+      inferredSessions: 0,
+      mergedFactKeys: [],
+      droppedFactKeys: [],
+      droppedPendingReinforcements: 0,
+    },
+  }
+}
+
+describe('inferStartLevel follow-ups', () => {
+  it('inferred-only fast-track never produces mastery (2 correct in 2 inferred sessions)', () => {
+    const log = levelLog(1, { perSession: 1, sessions: 2 })
+    const inf = inferStartLevel(profileWith(log), NOW)
+    expect(inf.masteredFactIds).toEqual([])
+    expect(inf.verdicts[0]!.passes).toBe(false)
+    // Same answers in live sessions do fast-track (control).
+    const live = log.map((a) => ({ ...a, sessionInferred: false }))
+    expect(inferStartLevel(profileWith(live), NOW).masteredFactIds).toHaveLength(9)
+  })
+
+  it('counts first, then filters: a pre-cutoff miss keeps the rest of its session uncounted', () => {
+    const cutoff = NOW - RULES.inferenceMaxAgeDays * DAY
+    const out: RawAttempt[] = []
+    for (const f of getLevel(L(1)).gatingFactIds) {
+      out.push(attempt(f, false, 'straddle', cutoff - 3_600_000))
+      for (let k = 0; k < 3; k++) out.push(attempt(f, true, 'straddle', cutoff + 3_600_000))
+      out.push(attempt(f, true, 'later', NOW - 10 * DAY))
+    }
+    const inf = inferStartLevel(profileWith(out), NOW)
+    expect(inf.masteredFactIds).toEqual([])
+    expect(inf.verdicts[0]).toMatchObject({ evidenced: false, passes: false })
+    expect(inf.outcome).toBe('insufficient')
+  })
+
+  it('window is anchored at migration: same result at migration + 1 day and + 60 days', () => {
+    const v1 = levelLog(1) // 5–6 days before NOW (= migration)
+    const liveAfter = levelLog(2, { daysAgo: -3 }).map((a) => ({ ...a, sessionInferred: false }))
+    const profile = migrated(profileWith([...v1, ...liveAfter]), NOW)
+    const soon = inferStartLevel(profile, NOW + DAY)
+    const late = inferStartLevel(profile, NOW + 60 * DAY)
+    expect(soon).toEqual(late)
+    expect(soon).toMatchObject({ outcome: 'recommend', recommendedLevelId: L(2) })
+    expect(soon.attemptsConsidered).toBe(v1.length)
+  })
+
+  it('applyStartLevelInference bumps updatedAtMs', () => {
+    const profile = profileWith(levelLog(1))
+    const next = applyStartLevelInference(profile, inferStartLevel(profile, NOW), NOW + 5)
+    expect(next.updatedAtMs).toBe(NOW + 5)
+  })
+})
+
+describe('dropDownOffer after a retake', () => {
+  const placementSession = (endAt: number): SessionRecord => ({
+    ...session('placement-2', L(4), endAt - 60_000),
+    kind: 'placement',
+    endedAtMs: endAt,
+  })
+
+  it('ignores play sessions from before the latest placement', () => {
+    const before = playedAt(L(4), [[2, 10], [2, 10], [9, 10], [9, 10]])
+    expect(dropDownOffer(before).offer).toBe(true)
+    const retake = {
+      ...before,
+      rawLog: {
+        ...before.rawLog,
+        sessions: [...before.rawLog.sessions, placementSession(NOW + 1.5 * DAY)],
+      },
+    }
+    const offer = dropDownOffer(retake)
+    expect(offer.offer).toBe(false)
+    expect(offer.accuracy).toBeCloseTo(0.9)
+  })
+
+  it('inferred start counts only sessions after migration', () => {
+    const p = playedAt(L(4), [[2, 10], [2, 10], [9, 10], [9, 10]])
+    delete p.progress.placementStartLevelId
+    p.progress.inferredStartLevelId = L(4)
+    expect(dropDownOffer(p).offer).toBe(true)
+    expect(dropDownOffer(migrated(p, NOW + 1.5 * DAY)).offer).toBe(false)
+  })
+})
