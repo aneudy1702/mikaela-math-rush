@@ -80,6 +80,8 @@ export class LevelQuestionOrchestrator {
   private readonly reviewIds: readonly string[]
   private readonly state: LevelSelectionState = createLevelSelectionState()
   private queue: LevelQueueItem[] = []
+  /** State before the last selectNext, for discardLast (D3 hide). null once answered/discarded. */
+  private lastSnapshot: { state: LevelSelectionState; queue: LevelQueueItem[] } | null = null
 
   constructor(options: LevelOrchestratorOptions) {
     const curriculum = options.curriculum ?? getCurriculum(options.skill.id)
@@ -110,6 +112,7 @@ export class LevelQuestionOrchestrator {
    * earlier levels are discarded (D2 step 2 / P8). Returns how many were dropped.
    */
   seedPending(pending: readonly PendingReinforcement[]): number {
+    this.lastSnapshot = null
     const kept = filterPendingToScope(pending, this.scope)
     for (const p of kept) {
       this.queue.push({
@@ -144,6 +147,10 @@ export class LevelQuestionOrchestrator {
 
   /** Choose the next fact (queue first, then a pool draw) and record it as shown. */
   selectNext(factEvidence: Readonly<Record<string, FactEvidence>>): LevelPick {
+    this.lastSnapshot = {
+      state: { ...this.state, recentFactIds: this.state.recentFactIds.slice() },
+      queue: this.queue.map((i) => ({ ...i })),
+    }
     const ctx = this.context(factEvidence)
     const gates = selectionGates(ctx)
     const q = this.state.questionsSoFar
@@ -203,8 +210,26 @@ export class LevelQuestionOrchestrator {
     return { question, pick }
   }
 
+  /**
+   * D3 / lead ruling 6b: the app was hidden while the last selected question was on screen.
+   * Restores selection state exactly as if it had never been shown: counters, recent list
+   * (the fact leaves the last-3 list), a consumed queue item (original dueAtIndex/waited)
+   * and any `waited` increments made during that selection. RNG streams stay advanced;
+   * nothing is logged. Only valid before `recordAnswer` for that question. Returns false
+   * (no-op) when there is nothing to discard.
+   */
+  discardLast(): boolean {
+    const snap = this.lastSnapshot
+    if (!snap) return false
+    Object.assign(this.state, snap.state)
+    this.queue = snap.queue
+    this.lastSnapshot = null
+    return true
+  }
+
   /** Schedule reinforcement: miss → reintroduce; correct reintroduce → later-check (no chaining). */
   recordAnswer(factId: string, source: AttemptSource, correct: boolean): void {
+    this.lastSnapshot = null
     const now = this.state.questionsSoFar
     if (!correct) {
       this.queue = this.queue.filter((e) => !(e.factId === factId && e.kind === 'reintroduce'))

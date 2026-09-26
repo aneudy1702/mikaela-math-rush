@@ -525,3 +525,67 @@ describe('D9 canonical ID + exact targeting', () => {
     ).toThrow()
   })
 })
+
+describe('D3 discard on hide (lead ruling 6b)', () => {
+  const snapshot = (orch: LevelQuestionOrchestrator) => ({
+    counters: { ...orch.counters, recentFactIds: orch.counters.recentFactIds.slice() },
+    queue: orch.getScheduled().map((i) => ({ ...i })),
+  })
+
+  it('restores counters, recent list and queue exactly (pool draw)', () => {
+    const ev = evidenceMap((id) => (id === '1x7' ? 'mastered' : L7_TABLE.has(id) ? 'struggling' : 'new'))
+    const orch = new LevelQuestionOrchestrator({
+      skill: createMultiplicationSkill(seeded(1)),
+      levelId: 'L7',
+      mode: 'practice',
+      rngs: { main: seeded(2), fluency: seeded(3) },
+    })
+    for (let i = 0; i < 4; i++) orch.selectNext(ev)
+    // A non-likely item due later + one due now that the floor will make wait.
+    ;(orch.counters as LevelSelectionState).likelyDrawn = 0
+    orch.seedPending([
+      { factId: '7x8', kind: 'reintroduce', dueInQuestions: 0 },
+      { factId: '7x9', kind: 'later-check', dueInQuestions: 5 },
+    ])
+    const before = snapshot(orch)
+    const pick = orch.selectNext(ev)
+    expect(pick.source).toBe('draw') // 7x8 waited behind the floor
+    expect(orch.getScheduled().find((i) => i.factId === '7x8')!.waited).toBe(1)
+    expect(orch.discardLast()).toBe(true)
+    expect(snapshot(orch)).toEqual(before)
+    expect(orch.counters.recentFactIds).toEqual(before.counters.recentFactIds) // discarded fact left the last-3 list
+    expect(orch.discardLast()).toBe(false)
+  })
+
+  it('a discarded queue-driven question is served again next, with original due/waited', () => {
+    const ev = evidenceMap(() => 'mastered')
+    const orch = new LevelQuestionOrchestrator({
+      skill: createMultiplicationSkill(seeded(1)),
+      levelId: 'L7',
+      mode: 'practice',
+      rngs: { main: seeded(4), fluency: seeded(5) },
+    })
+    orch.selectNext(ev)
+    orch.seedPending([{ factId: '7x8', kind: 'reintroduce', dueInQuestions: 0 }])
+    const before = snapshot(orch)
+    const { pick } = orch.nextQuestion(ev)
+    expect(pick).toMatchObject({ factId: '7x8', source: 'reintroduce' })
+    expect(orch.getScheduled()).toHaveLength(0)
+    orch.discardLast()
+    expect(snapshot(orch)).toEqual(before)
+    expect(orch.selectNext(ev)).toMatchObject({ factId: '7x8', source: 'reintroduce' })
+  })
+
+  it('cannot discard after the answer was recorded', () => {
+    const orch = new LevelQuestionOrchestrator({
+      skill: createMultiplicationSkill(seeded(1)),
+      levelId: 'L2',
+      mode: 'quick',
+      rngs: { main: seeded(6), fluency: seeded(7) },
+    })
+    const pick = orch.selectNext({})
+    orch.recordAnswer(pick.factId, pick.source, true)
+    expect(orch.discardLast()).toBe(false)
+    expect(orch.index).toBe(1)
+  })
+})

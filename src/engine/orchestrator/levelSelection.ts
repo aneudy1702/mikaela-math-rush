@@ -138,6 +138,9 @@ function introAllowed(ctx: LevelSelectionContext): boolean {
   const intro = ctx.level.introFactIds
   if (intro.length === 0) return true
   // Running cap: after this draw, intro questions ≤ introShareMaxL1 · questions.
+  // Lead ruling 6a (matches tools/sim/selection.ts): queue items (reintroduce/later-check)
+  // for intro facts count toward `introDrawn` (see recordShown) but are never blocked by
+  // this cap — it only filters pool draws.
   return ctx.state.introDrawn + 1 <= RULES.introShareMaxL1 * (ctx.state.questionsSoFar + 1)
 }
 
@@ -266,8 +269,16 @@ export function selectLevelFact(
     pick = twoStagePick(pools.reviewPool, factEvidence, state.recentFactIds, rngs)
     // Step 4: a carried pick over the cap is redrawn from the level pool.
     if (gates.capReached && isCarriedFact(ctx, pick.factId)) {
-      pool = 'level'
-      pick = twoStagePick(gates.levelCands, factEvidence, state.recentFactIds, rngs)
+      // The level pool is never empty for a real level (every table has gating facts and
+      // the intro cap only removes ×1 facts), so this is unreachable today. Defensive
+      // fallback that still respects the cap: non-carried review facts. Only if both are
+      // empty does twoStagePick throw ('no candidates').
+      if (gates.levelCands.length > 0) {
+        pool = 'level'
+        pick = twoStagePick(gates.levelCands, factEvidence, state.recentFactIds, rngs)
+      } else {
+        pick = twoStagePick(gates.reviewCands, factEvidence, state.recentFactIds, rngs)
+      }
     }
   } else {
     pool = 'level'
