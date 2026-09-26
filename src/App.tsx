@@ -12,6 +12,7 @@ import {
   createMultiplicationSkill,
 } from './engine'
 import {
+  gameAudio,
   isMuted as readMuted,
   playSfx,
   toggleMuted,
@@ -63,6 +64,7 @@ export function App() {
   const [installHint, setInstallHint] = useState(false)
   const engineRef = useRef<SessionEngine | null>(null)
   const lastSfxKey = useRef<string>('')
+  const lastBossIndex = useRef<number>(-1)
   const deferredPrompt = useRef<{ prompt: () => Promise<void> } | null>(null)
 
   useEffect(() => {
@@ -80,6 +82,13 @@ export function App() {
     window.addEventListener('beforeinstallprompt', onBip)
     return () => window.removeEventListener('beforeinstallprompt', onBip)
   }, [])
+
+  useEffect(() => {
+    if (screen === 'play') return
+    if (screen === 'home' || screen === 'placement') {
+      gameAudio.stopMusic()
+    }
+  }, [screen])
 
   function ensureAudio() {
     void unlockAudio()
@@ -106,6 +115,7 @@ export function App() {
   function startPlacement() {
     ensureAudio()
     playSfx('start')
+    gameAudio.stopMusic()
     setPlacementItems(buildPlacementSequence(12))
     setScreen('placement')
   }
@@ -119,6 +129,9 @@ export function App() {
     engineRef.current = engine
     engine.start(Date.now())
     lastSfxKey.current = ''
+    lastBossIndex.current = -1
+    gameAudio.resetSessionFlags()
+    gameAudio.startMusic()
     setClock(0)
     setScreen('play')
   }
@@ -137,7 +150,34 @@ export function App() {
       playSfx(sfx)
     }
 
+    const displayQ = Math.min(
+      snap.index + (snap.missHold ? 0 : 1),
+      snap.total,
+    )
+    const progress =
+      snap.total > 0 ? Math.min(1, snap.index / snap.total) : 0
+    gameAudio.setIntensity(progress)
+    gameAudio.maybeProgressMilestone(displayQ, snap.total)
+
+    if (
+      snap.current?.isBossPresentation &&
+      !snap.missHold &&
+      snap.index !== lastBossIndex.current
+    ) {
+      lastBossIndex.current = snap.index
+      playSfx('boss')
+    }
+
     if (snap.finished) {
+      gameAudio.stopMusic()
+      const summary = engine.getSummary()
+      if (
+        summary &&
+        !(summary.newTimeRecord || summary.newStreakRecord) &&
+        summary.correctCount < summary.total
+      ) {
+        playSfx('milestone')
+      }
       setScreen('results')
     } else {
       setClock((c) => c + 1)
@@ -146,6 +186,7 @@ export function App() {
 
   function goHome() {
     engineRef.current = null
+    gameAudio.stopMusic()
     setScreen('home')
   }
 
@@ -161,7 +202,7 @@ export function App() {
           onToggleMute={handleToggleMute}
           onDone={(done) => {
             persist(done)
-            playSfx('new-record')
+            playSfx('milestone')
             setScreen('home')
           }}
         />
@@ -174,8 +215,8 @@ export function App() {
     void clock
     if (!snapshot.finished && (snapshot.current || snapshot.missHold)) {
       const mode = snapshot.mode
-      // Previous best before this session (profile already may update at finish only)
       const bestBefore = profile.bestTimeMsByMode[mode]
+
       return (
         <div className="app-shell">
           <PlayScreen

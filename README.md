@@ -4,7 +4,7 @@ Phone-friendly multiplication fluency arcade for Mikaela. Dark neon sporty UI, a
 
 ## Stack
 
-Vite + React + TypeScript · Framer Motion · Web Audio SFX · PWA (Add to Home Screen) · localStorage learner profile
+Vite + React + TypeScript · Framer Motion · sample SFX + loop music · PWA (Add to Home Screen) · localStorage learner profile
 
 ## Run locally
 
@@ -35,6 +35,10 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 ## Art
 
 Decorative assets live under `src/assets/` (characters, icons, effects). Gameplay numbers and buttons stay React/CSS — see `src/assets/index.ts`.
+
+## Audio
+
+Sample SFX + rush loop live in `public/audio/`. `src/audio/AudioManager.ts` owns mute (persisted), music intensity, and event cues. Licenses/provenance: `src/assets/audio/AUDIO_LICENSES.md` (music is CC-BY 3.0 — credit Trinnox / OpenGameArt).
 
 ## Architecture
 
