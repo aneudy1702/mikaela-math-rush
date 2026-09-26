@@ -5,8 +5,8 @@ description: Deploy Mikaela Math Rush to Vercel (preview by default, production 
 
 # Deploy to Vercel
 
-Target: team `aneudy-abreus-projects`, project `temporary-sonic-sequoia-hdx3l6n`
-(prod URL: https://temporary-sonic-sequoia-hdx3l6n.vercel.app).
+Target: team `aneudy-abreus-projects`, project `mikaela-math-rush`
+(prod URL: https://mikaela-math-rush.vercel.app).
 
 Normal path: GitHub Actions (`.github/workflows/deploy.yml`) deploys pushes to
 `main` to production and PRs to preview, using the `VERCEL_TOKEN` repo secret. To
@@ -27,7 +27,7 @@ Use the CLI steps below for manual deploys. Build settings live in `vercel.json`
 
 1. Run `npm test` and `npm run build` locally; stop and report if either fails.
 2. Ensure the repo is linked (`.vercel/project.json` exists). If not:
-   `vercel link --yes --project temporary-sonic-sequoia-hdx3l6n --scope aneudy-abreus-projects`
+   `vercel link --yes --project mikaela-math-rush --scope aneudy-abreus-projects`
 3. Deploy:
    - Preview (default): `vercel deploy --yes --scope aneudy-abreus-projects`
    - Production (only when the user explicitly asks): add `--prod`

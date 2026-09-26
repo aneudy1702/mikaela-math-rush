@@ -25,9 +25,9 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 ## Deploy (Vercel)
 
-GitHub Actions (`.github/workflows/deploy.yml`) runs tests, then deploys to Vercel project `temporary-sonic-sequoia-hdx3l6n`:
+GitHub Actions (`.github/workflows/deploy.yml`) runs tests, then deploys to Vercel project `mikaela-math-rush`:
 
-- push to `main` → production: https://temporary-sonic-sequoia-hdx3l6n.vercel.app
+- push to `main` → production: https://mikaela-math-rush.vercel.app
 - pull request → preview deployment
 
 Required repo secret:

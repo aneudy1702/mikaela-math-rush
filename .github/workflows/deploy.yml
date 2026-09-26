@@ -11,9 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Not secret: identify aneudy-abreus-projects/temporary-sonic-sequoia-hdx3l6n.
+  # Not secret: identify aneudy-abreus-projects/mikaela-math-rush.
   VERCEL_ORG_ID: team_CAdTbIL1yOe85IWqr5vusm7L
-  VERCEL_PROJECT_ID: prj_9hHBuuyET53xAvcvlTVC9sH5nvk0
+  VERCEL_PROJECT_ID: prj_JTMFa8MF6IfEsxfseReZ9ZLXC8rY
 
 jobs:
   test:
