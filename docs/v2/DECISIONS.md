@@ -220,7 +220,7 @@ this. It is a derived view; the raw log (D11) remains the source of truth.
 ### D4 — Level-up  — ACCEPTED
 Automatic at session end when completion passes; celebrated; next level unlocked and made current. Kid can replay any
 unlocked level. No skipping ahead except placement, inference, or parent unlock (long-press, not kid-discoverable).
-Drop-down offer: if the first 2 sessions at a placement- or inference-recommended start level have accuracy < 70%,
+Drop-down offer: if the first 2 sessions (started after the most recent placement/inference) at a placement- or inference-recommended start level have accuracy < 70%,
 the game offers (never forces) the level below.
 
 ### D5 — Placement warm-up  — REVISED
@@ -236,7 +236,9 @@ the game offers (never forces) the level below.
   intro facts get a `placementLikely` flag used only by the success floor; cleared on the fact's first counted attempt.
 
 ### D5b — Start level for existing v1 profiles (Mikaela)  — PROPOSED
-1. Take v1 `recentAttempts` (≤ 8 per fact) with `atMs` within `inferenceMaxAgeDays` (30) of migration. Older → ignored.
+1. Take v1 `recentAttempts` (≤ 8 per fact) with `atMs` within `inferenceMaxAgeDays` (30) before migration
+   (`anchor = migratedAtMs`; attempts after the anchor are excluded; the result is independent of when inference runs).
+   Counted-ness is computed over the full inferred log first, then the window is applied (lead ruling after T6 review).
 2. Reconstruct sessions: all attempts sorted by time; a gap ≥ 30 min starts a new session. Mark `sessionInferred: true`,
    `source: 'draw'`, `levelId: null`. Migration only; v2 IDs authoritative afterwards.
 3. Recompute status under D2 (fast-track cannot come from inferred-only evidence; rule (b) may).

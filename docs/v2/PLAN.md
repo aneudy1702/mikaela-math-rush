@@ -186,7 +186,7 @@ Learning never generates questions (existing rule).
 - Depends T1, T4. Owns: `src/engine/learning/placement.ts`, tests. Keep old exports until T8.
 - Pure: staircase state machine (`nextProbe`, `recordProbe`, `result`), `inferStartLevel(profile)`.
 - Accept: hard cap 12; beginner who misses L1 → ≤ 3 questions; simulated "knows L1–L3" → start L4; skipped levels
-  unlocked not completed; stops on 2 consecutive misses.
+  unlocked not completed; back-probes before stopping (D5 governs; PLAN erratum).
 
 ### T7 — Session integration
 - Also: `player.xp` is the single XP source of truth (retire `gameXp` writes); append to raw log/evidence; avoid
