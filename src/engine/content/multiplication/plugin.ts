@@ -5,10 +5,10 @@ import type {
   QuestionRequest,
   Result,
 } from '../../contracts'
+import { canonicalFactId, isCanonicalFactId } from '../../contracts'
 import {
   CORE_FACTS,
   STRETCH_FACTS,
-  canonicalFactId,
   getFact,
   type MultFact,
 } from './facts'
@@ -36,15 +36,18 @@ function pickFromPool(pool: MultFact[], rng: () => number): MultFact {
 }
 
 function resolvePool(request: QuestionRequest): MultFact[] {
+  // D9: targeted requests are honored exactly — no band/stretch fallback. Unknown or
+  // non-canonical IDs throw.
+  if (request.targetConcepts && request.targetConcepts.length > 0) {
+    return request.targetConcepts.map((id) => {
+      const fact = getFact(id)
+      if (!fact) throw new Error(`Unknown target concept: ${id}`)
+      return fact
+    })
+  }
+
   const stretch = request.cognitiveDifficulty >= 0.85
   const base = stretch ? STRETCH_FACTS : CORE_FACTS
-
-  if (request.targetConcepts && request.targetConcepts.length > 0) {
-    const targeted = request.targetConcepts
-      .map((id) => getFact(id))
-      .filter((f): f is MultFact => f != null)
-    if (targeted.length > 0) return targeted
-  }
 
   // Map cognitiveDifficulty 0–1 onto bands 1–6.
   const maxBand = Math.min(
@@ -53,6 +56,16 @@ function resolvePool(request: QuestionRequest): MultFact[] {
   )
   const bandFiltered = base.filter((f) => f.band <= maxBand)
   return bandFiltered.length > 0 ? bandFiltered : base
+}
+
+/** D9 conceptIdFor: canonical fact ID of a question, whatever orientation was shown (8 × 7 → "7x8"). */
+export function multiplicationConceptIdFor(question: Question): string {
+  const a = question.metadata?.a
+  const b = question.metadata?.b
+  if (typeof a === 'number' && typeof b === 'number') return canonicalFactId(a, b)
+  const factId = question.metadata?.factId
+  if (typeof factId === 'string' && isCanonicalFactId(factId)) return factId
+  throw new Error(`Cannot resolve concept for question ${question.id}`)
 }
 
 function toQuestion(fact: MultFact, presentAs: 'ab' | 'ba', difficulty: number): Question {
@@ -86,6 +99,8 @@ export function createMultiplicationSkill(rng: () => number = Math.random): Math
       const presentAs = rng() < 0.5 ? 'ab' : 'ba'
       return toQuestion(fact, presentAs, request.cognitiveDifficulty)
     },
+
+    conceptIdFor: multiplicationConceptIdFor,
 
     evaluateAnswer(question: Question, answer: Answer): Result {
       const expected = Number(question.correctAnswer)

@@ -8,11 +8,7 @@ import type {
   SkillProgress,
 } from '../contracts'
 import { DEFAULT_SELECTION_STRATEGY, FIRST_LEVEL_ID } from '../contracts'
-import {
-  CORE_FACTS,
-  MULTIPLICATION_SKILL_ID,
-  STRETCH_FACTS,
-} from '../content/multiplication'
+import { CORE_FACTS, MULTIPLICATION_SKILL_ID } from '../content/multiplication'
 import {
   MASTERY_CONFIG,
   emptyFactRecord,
@@ -130,11 +126,16 @@ export function classifyFact(
   return 'challenge'
 }
 
+/**
+ * Legacy (v1) buckets. P2: the `stretch` bucket is removed — it injected ×11/×12 facts
+ * once 20 facts were strong. It is always empty now and the pool is always the core
+ * 1–10 space; the `stretch` parameter is kept only for signature compatibility (T8).
+ */
 export function bucketFacts(
   profile: LearnerProfile,
   stretch = false,
 ): Record<SelectionBucket, string[]> {
-  const pool = stretch ? STRETCH_FACTS : CORE_FACTS
+  void stretch
   const buckets: Record<SelectionBucket, string[]> = {
     review: [],
     target: [],
@@ -142,26 +143,10 @@ export function bucketFacts(
     stretch: [],
   }
 
-  const knownIds = new Set(pool.map((f) => f.factId))
-
-  for (const fact of pool) {
+  for (const fact of CORE_FACTS) {
     const record = profile.facts[fact.factId]
     const bucket = classifyFact(record)
     buckets[bucket].push(fact.factId)
-  }
-
-  // Stretch: high-band facts with low exposure when learner is strong overall.
-  const strongCount = Object.values(profile.facts).filter(isStrongFact).length
-  if (strongCount >= 20) {
-    for (const fact of STRETCH_FACTS) {
-      if (knownIds.has(fact.factId) && fact.band < 6) continue
-      const record = profile.facts[fact.factId]
-      if (!record || record.attempts < 3 || !isStrongFact(record)) {
-        if (!buckets.stretch.includes(fact.factId)) {
-          buckets.stretch.push(fact.factId)
-        }
-      }
-    }
   }
 
   return buckets
