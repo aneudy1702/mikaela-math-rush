@@ -203,7 +203,12 @@ this. It is a derived view; the raw log (D11) remains the source of truth.
   question is discarded (not counted, not logged); a new question is drawn on resume.
 - Answer latency tracked per attempt, never used in records.
 - **Key:** `skillId + levelId + mode + rulesVersion`.
-- **Eligible:** run completed and accuracy ≥ `recordMinAccuracy` (90%) over answers with source draw.
+- **Eligible:** run completed and accuracy ≥ `recordMinAccuracy` (90%) over **all regular (source draw) answers in the
+  session** — including repeat draws of a fact already missed that session. Clarification (owner): this deliberately
+  uses the raw session answers, not the filtered mastery-evidence view. Mastery evidence = what counts as proof of
+  learning; record eligibility = how well the whole run was played.
+- **First eligible run at a key** is presented as "Baseline set", never "NEW RECORD!" (T8 owns the wording; the legacy
+  screens keep their current text until then).
 - **Record = fastest eligible real elapsed time.** First eligible run at a key = baseline (no "new record" moment/XP/badge).
 - Shown (play pace line, best time, record moments) only on completed levels and L10. On incomplete levels records are
   tracked silently; play shows fact progress instead; results show the time neutrally.
@@ -287,9 +292,11 @@ change must pass it (D12) before it reaches DECISIONS.
 ### D10 — Evidence marks (visible progress)  — ACCEPTED
 - Each fact shows up to `marksMax` (3) marks. Marks are an **evidence indicator, never a partial mastery award**.
 - `marks(f)` = 0 if new or struggling; otherwise min(3, `cW`) — correct counted answers among the last 4.
-  A mastered fact shows a distinct "mastered" state instead of marks.
+- **Display value (clarification, owner):** `displayValue(f)` = 4 if mastered, else `marks(f)` (0–3). Mastered (4) is
+  always visually distinct from 3 marks. If mastery later drops, the display falls back to the evidence-supported
+  `marks(f)`.
 - Recomputed from evidence after every answer, so marks go down or disappear when misses enter the window.
-- Session-level visible progress event ("meaningful mark advancement"): the sum of marks + 3×mastered over the current
+- Session-level visible progress event ("meaningful mark advancement"): the sum of `displayValue` over the current
   level's table facts is higher at session end than at session start.
 - No XP, badges or sounds attach to marks by themselves (they are information, not rewards).
 - Sim re-run: experience-stuck counts mark advancement as visible progress (T-SIM2).
@@ -301,7 +308,12 @@ change must pass it (D12) before it reaches DECISIONS.
   records (start/end, mode, level, visibility pauses, questions discarded on hide).
 - **Evidence view** (derived): counted attempts, per-fact status inputs, per-level evidence buffers. Pure functions of
   the raw log + RULES; can be recomputed ("replay history under new rules").
+- Consumers pick the view by question: mastery, level accuracy and advancement read the evidence view; record
+  eligibility, session summaries and analytics read raw session answers (D3).
 - Persisted per-fact evidence caches are allowed for speed but must be recomputable from the raw log.
+- **Failure safety (owner):** corruption or full storage must never silently roll the learner back to an older save or
+  erase newer progress. A damaged raw log is quarantined, not a reason to re-migrate v1; rejected blobs are backed up
+  before any overwrite.
 - Storage: compact encoding; cap `rawLogMaxAttempts` (20 000). On overflow evict the oldest whole sessions from the raw
   log only — never evidence caches, progress, records or player state. v1 migrated attempts are stored in the raw log
   with `sessionInferred: true`.
