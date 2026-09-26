@@ -17,11 +17,11 @@ Use the CLI steps below for manual deploys. Build settings live in `vercel.json`
 ## Auth
 
 1. If `vercel whoami` succeeds, use the existing CLI login — no token needed.
-2. Otherwise, load the token from `.env.vercel` (gitignored; template in
-   `.env.vercel.example`) and pass it per command:
-   `set -a; source .env.vercel; set +a` then add `--token "$VERCEL_TOKEN"`.
+2. Otherwise, load the token from `.env` (gitignored; template in
+   `.env.example`) and pass it per command:
+   `set -a; source .env; set +a` then add `--token "$VERCEL_TOKEN"`.
    Never print, echo, or commit the token.
-3. If neither works, ask the user to run `vercel login` or fill in `.env.vercel`.
+3. If neither works, ask the user to run `vercel login` or fill in `.env`.
 
 ## Steps
 
