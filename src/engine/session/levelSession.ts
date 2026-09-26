@@ -83,7 +83,8 @@ import {
  * - Construct only for levels in `progress.unlockedLevelIds` and never for L10 (deferred,
  *   D7); use `canStartLevel` to decide what the ladder offers. The constructor throws otherwise.
  * - Pass `store.lastLoad()` as `load` so a damaged raw log on a not-yet-rebuilt profile is
- *   never rebuilt (`startInfo.evidenceStaleWithDamagedLog`) and load notices reach the UI.
+ *   flagged (`startInfo.evidenceStaleWithDamagedLog`, alert `evidence-stale-damaged-log`)
+ *   and load notices reach the UI.
  * - Persist at the save points only (see "Saving" below); never encode the profile per answer.
  * - Hand every `SaveResult` back through `reportSaveResult` and show every returned
  *   `PersistenceAlert` (D11 persistence invariant). `persistenceAlerts()` keeps them.
@@ -158,11 +159,15 @@ export interface LevelSessionOptions {
   /** `store.lastLoad()`. Its quarantine flag blocks the evidence rebuild; its notice is surfaced. */
   load?: Pick<ProfileLoadResult, 'quarantine' | 'notice' | 'pendingNotices' | 'readOnly'> | null
   /**
+   * @internal Simulations only; production callers must not pass this.
    * Default false: the engine works on a structured clone and never mutates the caller's
    * object. true: the engine takes ownership of `profile` (simulations; avoids a copy).
    */
   adoptProfile?: boolean
-  /** Test seam (D12 replay). Default: `new LevelQuestionOrchestrator(ctx)`. */
+  /**
+   * @internal Test seam (D12 replay). Production callers must not pass this.
+   * Default: `new LevelQuestionOrchestrator(ctx)`.
+   */
   questionSource?: (ctx: QuestionSourceContext) => SessionQuestionSource
 }
 
@@ -171,9 +176,13 @@ export interface SessionStartInfo {
   /** `progress.evidenceStale` was set and the evidence view was rebuilt from the raw log (D11 erratum (a)). */
   rebuiltEvidence: boolean
   /**
-   * The stored profile was not yet rebuilt and its raw log was damaged/salvaged: the evidence
-   * was NOT rebuilt (an incomplete log would lose history); caches are authoritative from now
-   * on (`evidenceStale` cleared so no later start rebuilds from the salvaged log). Show a notice.
+   * The stored profile was not yet rebuilt (`evidenceStale`) and its raw log was damaged and
+   * salvaged (`load.quarantine.evidenceStaleWithDamagedLog`). Lead ruling: the evidence IS
+   * rebuilt from the salvaged log (the stale caches were never computed, so keeping them would
+   * silently wipe the v1-derived evidence) and `evidenceStale` is cleared; history lost to the
+   * damage cannot be recovered, so T8 must show the `evidence-stale-damaged-log` alert.
+   * `rebuiltEvidence` is true in this case too. No XP/events come from rebuilt mastery (the
+   * session's `before` snapshot is taken after the rebuild).
    */
   evidenceStaleWithDamagedLog: boolean
   /** Carried reinforcement items outside current + earlier levels (dropped, D2 step 2). */
@@ -579,14 +588,11 @@ export class LevelSessionEngine {
 
     // D11 erratum: rebuild ONLY when evidenceStale — and never from a salvaged raw log.
     let rebuiltEvidence = false
-    const damaged = Boolean(options.load?.quarantine?.evidenceStaleWithDamagedLog)
+    const damaged = Boolean(options.load?.quarantine?.evidenceStaleWithDamagedLog) && profile.progress.evidenceStale
     if (profile.progress.evidenceStale) {
-      if (damaged) {
-        profile.progress = { ...profile.progress, evidenceStale: false }
-      } else {
-        profile.progress = rebuildEvidence(profile.rawLog, profile.progress)
-        rebuiltEvidence = true
-      }
+      // Also for a salvaged (damaged) log: best-effort rebuild, surfaced below (lead ruling).
+      profile.progress = rebuildEvidence(profile.rawLog, profile.progress)
+      rebuiltEvidence = true
     }
 
     this.profile = profile
@@ -842,11 +848,17 @@ export class LevelSessionEngine {
     return { discarded }
   }
 
-  /** App visible again: restart the clock and draw a fresh question (null if complete/ended). */
+  /**
+   * App visible again: restart the clock and draw a fresh question. If a miss reveal was on
+   * screen when hidden it is kept (`snapshot().reveal`) and null is returned: call
+   * `nextQuestion()` once it is dismissed. null also when complete/ended.
+   */
   resume(): CurrentQuestion | null {
     if (this.state !== 'playing') return null
     this.closeOpenPause(this.clock())
-    this.reveal = null
+    // A miss reveal shown when the app was hidden stays up (the question already ended; the
+    // reveal is feedback). The next question is drawn when the kid dismisses it.
+    if (this.reveal) return null
     return this.nextQuestion()
   }
 
@@ -913,27 +925,26 @@ export class LevelSessionEngine {
   // ---- persistence pass-through (T8 shows these) ---------------------------------------
 
   /**
-   * Hand back the `SaveResult` of every save. Returns the alert T8 must show, or null for a
-   * clean save. Never changes learner state (D11 persistence invariant).
+   * Hand back the `SaveResult` of every save. Returns EVERY alert this result produced (e.g.
+   * `save-trimmed` plus a `notice`), empty for a clean save; T8 must show each. Never changes
+   * learner state (D11 persistence invariant). `persistenceAlerts()` accumulates them all.
    */
-  reportSaveResult(result: SaveResult): PersistenceAlert | null {
-    let alert: PersistenceAlert | null = null
+  reportSaveResult(result: SaveResult): PersistenceAlert[] {
+    const produced: PersistenceAlert[] = []
     if (result.status === 'failed') {
-      alert = { kind: 'save-failed', reason: result.reason }
-    } else if (result.status === 'saved-trimmed') {
-      alert = {
-        kind: 'save-trimmed',
-        droppedAttempts: result.droppedAttempts,
-        droppedSessions: result.droppedSessions,
+      produced.push({ kind: 'save-failed', reason: result.reason })
+    } else {
+      if (result.status === 'saved-trimmed') {
+        produced.push({
+          kind: 'save-trimmed',
+          droppedAttempts: result.droppedAttempts,
+          droppedSessions: result.droppedSessions,
+        })
       }
+      if (result.notice) produced.push({ kind: 'notice', notice: result.notice })
     }
-    if (alert) this.alerts.push(alert)
-    if (result.status !== 'failed' && result.notice) {
-      const noticeAlert: PersistenceAlert = { kind: 'notice', notice: result.notice }
-      this.alerts.push(noticeAlert)
-      alert ??= noticeAlert
-    }
-    return alert
+    this.alerts.push(...produced)
+    return produced
   }
 
   /** Every persistence alert of this session (load + saves), oldest first. */

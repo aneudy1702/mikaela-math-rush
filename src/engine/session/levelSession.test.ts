@@ -67,6 +67,7 @@ interface PlayOpts {
   load?: LevelSessionOptions['load']
 }
 
+
 function makeEngine(profile: LearnerProfile, clock: Clock, o: PlayOpts): LevelSessionEngine {
   return new LevelSessionEngine({
     profile,
@@ -585,6 +586,26 @@ describe('LevelSessionEngine — visibility (D3)', () => {
     engine.nextQuestion()
     expect(engine.snapshot().reveal).toBeNull()
   })
+
+  it('a miss reveal on screen survives hide/resume (clock paused while hidden)', () => {
+    const clock: Clock = { t: T0 + DAY }
+    const engine = makeEngine(createEmptyProfile('K', T0), clock, { day: 1, seed: 4 })
+    const q = engine.nextQuestion()!
+    clock.t += 2000
+    const out = engine.answer(q.question.id, -5)
+    clock.t += 1000
+    expect(engine.hide()).toEqual({ discarded: false })
+    clock.t += 60_000
+    expect(engine.resume()).toBeNull() // reveal kept, no new draw yet
+    expect(engine.snapshot().reveal).toEqual(out.reveal)
+    expect(engine.isHidden()).toBe(false)
+    clock.t += 500
+    expect(engine.elapsedMs()).toBe(3500)
+    const next = engine.nextQuestion()!
+    expect(next).not.toBeNull()
+    expect(engine.snapshot().reveal).toBeNull()
+    expect(engine.getProfile().rawLog.sessions.at(-1)!.discardedOnHide).toEqual([])
+  })
 })
 
 describe('LevelSessionEngine — level-up (D4)', () => {
@@ -665,7 +686,7 @@ describe('LevelSessionEngine — evidence rebuild policy (D11 erratum)', () => {
     expect(e2.getProfile().progress.factEvidence['9x9']!.countedAttempts).toBe(42)
   })
 
-  it('evidenceStaleWithDamagedLog → no rebuild from the salvaged log; flag surfaced; never rebuilt later', () => {
+  it('evidenceStaleWithDamagedLog → rebuilt from the salvaged log, flag cleared, alert surfaced (lead ruling)', () => {
     const profile = staleProfile()
     const load = {
       quarantine: {
@@ -675,13 +696,22 @@ describe('LevelSessionEngine — evidence rebuild policy (D11 erratum)', () => {
       notice: 'damaged-history-backed-up' as const,
     }
     const e = makeEngine(profile, { t: T0 + DAY }, { day: 1, seed: 1, load })
-    expect(e.startInfo).toMatchObject({ rebuiltEvidence: false, evidenceStaleWithDamagedLog: true })
-    expect(e.getProfile().progress.factEvidence).toEqual({})
+    expect(e.startInfo).toMatchObject({ rebuiltEvidence: true, evidenceStaleWithDamagedLog: true })
+    expect(e.getProfile().progress.factEvidence['2x3']!.countedAttempts).toBe(3)
     expect(e.getProfile().progress.evidenceStale).toBe(false)
     expect(e.persistenceAlerts()).toEqual([
       { kind: 'evidence-stale-damaged-log' },
       { kind: 'notice', notice: 'damaged-history-backed-up' },
     ])
+    // No XP / fact-mastered events from rebuilt mastery: `before` is taken after the rebuild.
+    const spaced = staleProfile()
+    spaced.rawLog.sessions.push({ ...spaced.rawLog.sessions[0]!, id: 'v1-inferred-1', startedAtMs: T0 - 3 * DAY, endedAtMs: T0 - 3 * DAY + 60_000 })
+    spaced.rawLog.attempts.push({ ...liveAttempt('2x3', true, 'v1-inferred-1', T0 - 3 * DAY), sessionInferred: true })
+    const r = play(spaced, { day: 1, seed: 1, load, answer: () => false })
+    expect(r.engine.startInfo.rebuiltEvidence).toBe(true)
+    expect(r.engine.getProfile().progress.factEvidence['2x3']!.everMastered).toBe(true) // mastered by rebuild
+    expect(r.summary.advancement.newlyMasteredFactIds).toEqual([])
+    expect(r.summary.xp.factMastered).toBe(0)
     e.abandon()
     const later = makeEngine(e.getProfile(), { t: T0 + 2 * DAY }, { day: 2, seed: 2 })
     expect(later.startInfo.rebuiltEvidence).toBe(false)
@@ -689,15 +719,22 @@ describe('LevelSessionEngine — evidence rebuild policy (D11 erratum)', () => {
 
   it('SaveResult pass-through: failures, trims and notices become alerts; clean saves do not', () => {
     const e = makeEngine(createEmptyProfile('K', T0), { t: T0 }, { day: 0, seed: 1 })
-    expect(e.reportSaveResult({ status: 'saved' })).toBeNull()
-    expect(e.reportSaveResult({ status: 'failed', reason: 'quota' })).toEqual({ kind: 'save-failed', reason: 'quota' })
-    expect(e.reportSaveResult({ status: 'saved-trimmed', droppedAttempts: 5, droppedSessions: 1 })).toEqual({
-      kind: 'save-trimmed', droppedAttempts: 5, droppedSessions: 1,
-    })
-    expect(e.reportSaveResult({ status: 'saved', notice: 'damaged-history-not-backed-up' })).toEqual({
-      kind: 'notice', notice: 'damaged-history-not-backed-up',
-    })
-    expect(e.persistenceAlerts()).toHaveLength(3)
+    expect(e.reportSaveResult({ status: 'saved' })).toEqual([])
+    expect(e.reportSaveResult({ status: 'failed', reason: 'quota' })).toEqual([{ kind: 'save-failed', reason: 'quota' }])
+    expect(e.reportSaveResult({ status: 'saved-trimmed', droppedAttempts: 5, droppedSessions: 1 })).toEqual([
+      { kind: 'save-trimmed', droppedAttempts: 5, droppedSessions: 1 },
+    ])
+    expect(e.reportSaveResult({ status: 'saved', notice: 'damaged-history-not-backed-up' })).toEqual([
+      { kind: 'notice', notice: 'damaged-history-not-backed-up' },
+    ])
+    // One result can produce several alerts: all are returned.
+    expect(
+      e.reportSaveResult({ status: 'saved-trimmed', droppedAttempts: 2, droppedSessions: 1, notice: 'unreadable-save-not-backed-up' }),
+    ).toEqual([
+      { kind: 'save-trimmed', droppedAttempts: 2, droppedSessions: 1 },
+      { kind: 'notice', notice: 'unreadable-save-not-backed-up' },
+    ])
+    expect(e.persistenceAlerts()).toHaveLength(5)
   })
 })
 
