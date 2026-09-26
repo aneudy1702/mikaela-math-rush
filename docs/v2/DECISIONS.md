@@ -1,9 +1,10 @@
 # Math Rush V2 — Decision Log
 
-Status per decision: PROPOSED / ACCEPTED / REVISED / DEFERRED / PENDING-SIM (value to be confirmed by the learner simulator).
+Status per decision: ACCEPTED / DEFERRED. Revision 4 is approved by the owner and frozen for implementation.
 Owner = Aneudy. Lead = Claude. Test user = Mikaela (grade 3). Secondary feedback = Adrian (older brother).
 
-**Revision 3.** Every learning rule is executable: exact definitions in §B, all tunable numbers in the `RULES` table (§B0).
+**Revision 4 (APPROVED).** Thresholds set from the learner simulator (docs/v2/SIM-REPORT.md) and the independent
+checker pass. Every learning rule is executable: exact definitions in §B, all tunable numbers in the `RULES` table (§B0).
 Nothing qualitative is left for an implementer to invent. If an implementer finds a case these rules don't decide, they
 stop and report — they do not invent a rule.
 
@@ -38,46 +39,64 @@ Revision 3 directives:
     slow-but-accurate, improving learners. Validate sessions-to-progression, stuck rates, and the Mixed threshold
     (prefer the simpler number if 85/88/90 behave alike).
 
+Revision 4 directives (owner sign-off on simulator evidence):
+14. Slow-vs-fast statistical check restated to remove seed/rounding noise, not to loosen fairness: paired common
+    seeds, per-level |Δmean| ≤ 0.25 sessions, plus the p90, stuck-rate and whole-distribution tests. The exact
+    invariant (scaling latency never changes status, evidence eligibility, completion or record eligibility) unchanged.
+15. V1 (mastery spacing over all counted correct evidence) and V4 (Mixed window extends back to cover required
+    sessions) are correctness fixes.
+16. Mixed 1–10 = option B at 85% + V4: consolidation (rolling 85%, struggling guard, session/day coverage). No further
+    capstone simulation before the kid test.
+17. Visible evidence marks per fact (T8): progress indicators, NOT partial mastery awards; derived from the real
+    evidence model; may move backward. Re-run experience-stuck counting mark advancement.
+18. Remove confirm chaining. Persist raw attempts separately from the filtered evidence view; never discard
+    non-evidence attempts from persisted history.
+19. No threshold retuning before T10 unless T0 finds a genuine contract contradiction.
+
 ---
 
 ## B0. RULES — every tunable number (single source of truth; code imports these)
 
-| Key | Value | Status | Meaning |
+FROZEN for V2 implementation (owner, revision 4). No retuning before the kid test (T10) unless T0 finds a genuine
+contract contradiction. "Tested" = backed by SIM-REPORT.md; "untested" = rev-3 default kept, tune after T10.
+
+| Key | Value | Basis | Meaning |
 |---|---|---|---|
-| `windowSize` | 4 | PENDING-SIM | counted attempts considered for status |
-| `masteredMinCorrectInWindow` | 3 | PENDING-SIM | rule (b) |
-| `fastTrackMinAttempts` | 2 | PENDING-SIM | rule (a) |
-| `minDistinctSessionsForMastery` | 2 | PENDING-SIM | spacing |
-| `struggleMinAttempts` | 3 | PENDING-SIM | |
-| `struggleMaxCorrectInWindow` | 1 | PENDING-SIM | |
-| `provisionalEnabled` | true | PENDING-SIM | sim compares on/off |
-| `provisionalMinCorrect` | 3 | PENDING-SIM | in one session |
-| `provisionalMinGapQuestions` | 8 | PENDING-SIM | intervening questions (live) |
-| `provisionalMinGapMsInferred` | 60 000 | PENDING-SIM | inferred v1 evidence |
-| `confirmDelayRange` | [9, 12] | PENDING-SIM | questions after first correct |
-| `allowanceFraction` / `allowanceMin` | 0.2 / 1 | PENDING-SIM | a = max(1, ⌊0.2·n⌋) |
-| `levelAccuracyMin` / `levelAccuracyWindow` | 0.85 / 20 | PENDING-SIM | table levels |
-| `minSessionsAtLevel` | 2 | PENDING-SIM | |
-| `maxStrugglingTableFacts` | 1 | PENDING-SIM | |
-| `mixedAccuracyMin` | 0.88 | PENDING-SIM | sim compares 0.85 / 0.88 / 0.90 |
-| `mixedWindow` / `mixedMinSessions` / `mixedMinDays` | 50 / 3 / 2 | PENDING-SIM | |
-| `mixedMaxStruggling` | 2 | PENDING-SIM | |
-| `statusWeight` | struggling 4 · learning 3 · new 2.5 · provisional 2 · mastered 1 | PENDING-SIM | |
-| `slowness` (non-mastered only) | ≤3 s 0.8 · 3–6 s 1.0 · >6 s 1.3 | PENDING-SIM | median of last ≤4 correct latencies |
-| `reviewShare` / `reviewShareWithCarried` | 0.15 / 0.25 | PENDING-SIM | |
-| `introShareMaxL1` | 0.20 | PENDING-SIM | ×1 intro facts in L1 |
-| `successFloor` | 0.40 | PENDING-SIM | |
-| `carriedHardCap` | Quick 1 · Practice 2 · Rush 8 | PENDING-SIM | per session |
-| `reintroduceDelayRange` / `laterCheckDelayRange` | [3, 8] / [5, 12] | ACCEPTED | existing |
-| `recordMinAccuracy` | 0.90 | PENDING-SIM | |
-| `dropDownOfferAccuracy` | 0.70 over first 2 sessions | PENDING-SIM | |
-| `placementMaxQuestions` | 12 | PENDING-SIM | |
-| `inferenceMaxAgeDays` | 30 | PROPOSED | |
-| `inferenceSessionGapMs` | 1 800 000 | ACCEPTED | migration only |
-| `inferenceMinAttemptsPerFact` | 3 | PROPOSED | |
-| `clearFailAccuracy` / `clearFailMinAttempts` | 0.70 / 10 | PROPOSED | |
-| XP numbers | see D6 | PENDING-SIM | sim reports XP/min |
-| `rulesVersion` | 1 | ACCEPTED | bump when timing/record rules change |
+| `windowSize` | 4 | tested | counted attempts considered for the accuracy part of status |
+| `masteredMinCorrectInWindow` | 3 | tested | rule (b) |
+| `fastTrackMinAttempts` | 2 | tested | rule (a) |
+| `minDistinctSessionsForMastery` | 2 | tested | spacing, checked over all counted correct attempts (V1) |
+| `struggleMinAttempts` / `struggleMaxCorrectInWindow` | 3 / 1 | untested | |
+| `allowanceFraction` / `allowanceMin` | 0.2 / 1 | untested (rarely binds) | a = max(1, ⌊0.2·n⌋) |
+| `levelAccuracyMin` / `levelAccuracyWindow` | 0.85 / 20 | tested | first knob to revisit after T10 |
+| `minSessionsAtLevel` | 2 | tested | |
+| `maxStrugglingTableFacts` | 1 | untested | |
+| `mixedAccuracyMin` | 0.85 | tested | |
+| `mixedMinAnswers` / `mixedMinSessions` / `mixedMinDays` | 50 / 3 / 2 | tested (V4) | window extends back to cover both |
+| `mixedMaxStruggling` | 2 | tested | |
+| `evidenceBufferMax` | 300 | tested (V4) | per-level evidence buffer length |
+| `statusWeight` | struggling 4 · learning 3 · new 2.5 · mastered 1 | untested | |
+| `fluencySlowness` (mastered only, stage 2) | ≤3 s 0.8 · 3–6 s 1.0 · >6 s 1.3 | tested (invariant) | median of last ≤ 4 correct latencies |
+| `reviewShare` / `reviewShareWithCarried` | 0.15 / 0.25 | untested | |
+| `introShareMaxL1` | 0.20 | untested | |
+| `successFloor` | 0.40 | tested | |
+| `carriedHardCap` | Quick 1 · Practice 2 · Rush 8 | untested | per session |
+| `reintroduceDelayRange` / `laterCheckDelayRange` | [3, 8] / [5, 12] | existing | later-check only after a correct reintroduce |
+| `recordMinAccuracy` | 0.90 | untested | |
+| `dropDownOfferAccuracy` | 0.70 over first 2 sessions | untested | |
+| `placementMaxQuestions` | 12 | tested (length) | start accuracy untested |
+| `inferenceMaxAgeDays` | 30 | untested | |
+| `inferenceSessionGapMs` | 1 800 000 | owner | migration only |
+| `inferenceMinAttemptsPerFact` | 3 | untested | |
+| `clearFailAccuracy` / `clearFailMinAttempts` | 0.70 / 10 | untested | |
+| `marksMax` | 3 | owner | evidence marks per fact (D10) |
+| `rawLogMaxAttempts` | 20 000 | owner | persisted raw attempt cap (D11) |
+| XP numbers | see D6 | tested | |
+| `rulesVersion` | 1 | — | bump when timing/record rules change |
+
+Removed in revision 4: provisional mastery and all its keys (`provisionalEnabled`, `provisionalMinCorrect`,
+`provisionalMinGapQuestions`, `provisionalMinGapMsInferred`), confirm items (`confirmDelayRange`), and latency-based
+priority for non-mastered facts (the old `slowness`).
 
 ---
 
@@ -87,7 +106,7 @@ Revision 3 directives:
 Grade 3 → Multiplication, factors 1–10. ×11/×12 = deferred bonus level (not this sprint). Curriculum model:
 `SkillCurriculum { skillId, grade, levels: LevelDef[] }`. No multi-course registry until a second skill exists.
 
-### D1 — Level ladder  — REVISED
+### D1 — Level ladder  — ACCEPTED
 Every core fact has exactly one **owner level**. Owned facts are **gating** (count toward completion rule R1) or
 **intro** (rule facts shown and practiced but not gating). Only ×1 is intro.
 
@@ -108,89 +127,83 @@ Invariants (T1 tests): owned sums to 55, each core fact owned exactly once; gati
 Ordering is pedagogical (×2 doubles, ×10 add-a-zero, ×5 half of ×10, then 3, 4, 6, 7, 8/9), not product size;
 T10 validates it with Mikaela.
 
-### D2 — Fact status, selection, level completion  — REVISED (fully executable)
+### D2 — Fact status, selection, level completion  — ACCEPTED (revision 4, fully executable)
 
-**Attempt record.** `{ factId (canonical), correct, latencyMs, atMs, sessionId, sessionInferred, levelId | null,
-source: 'draw' | 'reintroduce' | 'later-check' | 'confirm' | 'placement' }`. There is no retype step (directive 12),
-so every attempt is a first answer.
+**Raw attempt** (persisted, D11): `{ factId (canonical), correct, latencyMs, atMs, sessionId, sessionInferred,
+levelId | null, source: 'draw' | 'reintroduce' | 'later-check' | 'placement' }`. There is no retype step, so every
+attempt is a first answer.
 
-**Counted attempt** (mastery evidence): an attempt with no earlier *miss of the same fact in the same session*.
-So after a miss, that fact's later attempts in that session (reintroduce, later-check, draws) never count. Carried-over
-queue items in a new session do count (genuinely spaced). Non-counted attempts still update selection priority.
+**Counted attempt** (academic evidence): a raw attempt with no earlier *miss of the same fact in the same session*.
+After a miss, that fact's later attempts in that session (reintroduce, later-check, draws) never count. Carried-over
+queue items in a new session do count. Non-counted attempts are still persisted (D11) and still feed selection.
 
-Let `C` = counted attempts of fact f (chronological), `W` = last `windowSize` (4) of `C`, `cW` = correct in `W`.
+Let `C` = counted attempts of fact f (chronological), `W` = last `windowSize` (4) of `C`, `cW` = correct in `W`,
+`S(C)` = distinct sessions containing a correct attempt in `C`.
 
 **Status** (L1–L9; latency never used), evaluated in this order:
 1. **new** — `|C| = 0`.
 2. **mastered** — either
-   - (a) fast-track: `|C| ≥ 2`, every attempt in `C` correct, correct attempts in ≥ 2 distinct sessions, and at least
-     one of those sessions is not inferred; or
-   - (b) `|W| ≥ 3` and `cW ≥ 3`, with correct attempts in `W` spanning ≥ 2 distinct sessions.
+   - (a) fast-track: `|C| ≥ 2`, every attempt in `C` correct, `|S(C)| ≥ 2`, at least one of those sessions not inferred; or
+   - (b) `|W| ≥ 3`, `cW ≥ 3`, and `|S(C)| ≥ 2` (**V1**: spacing is checked over all counted correct attempts, not only W).
 3. **struggling** — `|W| ≥ 3` and `cW ≤ 1`. Kid-facing label: "practicing".
-4. **provisional** (only if `provisionalEnabled`) — in the most recent session that contains counted attempts of f:
-   ≥ 3 correct counted attempts, no miss of f in that session, consecutive counted attempts separated by ≥ 8
-   intervening questions (live) or ≥ 60 s (inferred), and that session is not inferred.
-5. **learning** — otherwise.
+4. **learning** — otherwise.
 
-Consequences (tested in T4): one slip does not drop mastery (C C C M → 3/4 → mastered). Two misses in W → learning.
-Provisional confirms naturally: the next session's first counted attempt correct → 4 correct across 2 sessions → rule (b).
-Provisional revokes naturally: next session's first counted attempt missed → correct attempts in one session only →
-learning (never struggling, since cW = 3). Quick sessions (10 questions) cannot produce provisional.
+Consequences (T4 tests): one slip does not drop mastery (C C C M → mastered). Two misses in W → learning.
+A single session of 4+ clean counted answers after an earlier correct session → mastered (V1). A fact with correct
+answers in only one session is never mastered. P(mastered | |W| = 4, spacing met) = p⁴ + 4p³(1−p) →
+0.99 / 0.95 / 0.82 / 0.65 at p = 0.95 / 0.90 / 0.80 / 0.70.
 
-Threshold math: rule (b) = 75% of the last 4, not 90% (90% of 4 = 4/4, rejected). For true accuracy p at a check with
-|W| = 4: P(mastered) = p⁴ + 4p³(1−p) → 0.99 / 0.95 / 0.82 / 0.65 at p = 0.95 / 0.90 / 0.80 / 0.70.
-With 2–3 counted attempts only fast-track or cW = 3/3 apply (p² / p³) — the simulator reports the real distribution.
-
-`everMastered` (per fact): set true the first time status becomes mastered (not provisional). Never unset. Drives the
-+5 XP (D6). Set silently by migration/inference.
+`everMastered` (per fact): set true the first time status becomes mastered; never unset. Drives the +5 XP (D6).
+Set silently by migration/inference.
 
 **Question selection** (per question, in order):
-1. **Level pool** = table facts of current level (L1: intro facts capped at `introShareMaxL1` of draws).
-   **Review pool** = facts owned by earlier levels, not in the table. **Carried** = review facts whose status is learning,
-   struggling or provisional.
-2. **Queue** — due reintroduce / later-check / confirm items are drawn first, subject to steps 4–5. Queue items for facts
-   outside current + earlier levels are discarded.
-3. **Pool choice** — review with probability `reviewShare` (0.15), or `reviewShareWithCarried` (0.25) while carried facts
-   exist; otherwise level pool.
-4. **Carried-hard cap** — at most `carriedHardCap` (Quick 1 · Practice 2 · Rush 8) draws per session of carried facts with
-   status learning or struggling (queue included). Over cap → draw from level pool instead.
-5. **Success floor** — "likely-correct" = mastered, provisional, placement-likely, or ≥ 2 counted attempts with ≥ 75%
-   correct. Before each question, if `likelyDrawn / questionsSoFar < successFloor` and any likely candidate exists in the
-   allowed pools, the draw is restricted to likely candidates; a due queue item that is not likely waits (max 3 questions).
-   If no likely candidate exists (e.g. first L1 session), the floor is not enforced.
-6. **Weighted pick** within the chosen pool: weight = `statusWeight[status] × slowness`, slowness = 1.0 for mastered
-   facts and facts with no correct attempts. Exclude the last 3 facts shown.
-7. **Confirm scheduling** (Practice/Rush only, `provisionalEnabled`): after a fact's first correct counted attempt in the
-   session, schedule one `confirm` item `confirmDelayRange` questions later, up to two per fact per session, only if the
-   session has room.
+1. **Level pool** = table facts of current level (L1: intro facts capped at `introShareMaxL1` of draws, running cap).
+   **Review pool** = facts owned by earlier levels, not in the table. **Carried** = review facts with status learning
+   or struggling.
+2. **Queue** — due reintroduce / later-check items are drawn first, subject to steps 4–5. A later-check is scheduled only
+   after a correct reintroduce (no chaining). Queue items for facts outside current + earlier levels are discarded.
+3. **Pool choice** — review with probability `reviewShare`, or `reviewShareWithCarried` while carried facts exist;
+   otherwise level pool.
+4. **Carried-hard cap** — at most `carriedHardCap` draws per session of carried facts (queue included). Over cap: a queue
+   item waits in the queue; a pool pick is redrawn from the level pool.
+5. **Success floor** — "likely-correct" = mastered, `placementLikely`, or ≥ 2 counted attempts with ≥ 75% correct in W.
+   From the second question on, if `likelyDrawn / questionsSoFar < successFloor` and a likely candidate exists (chosen
+   pool first, else the other allowed pool), the draw is restricted to likely candidates; a due non-likely queue item
+   waits (max 3 questions). No likely candidate → floor not enforced.
+6. **Pick (two-stage, budget-neutral)** — stage 1: weighted pick over the chosen pool with weight `statusWeight[status]`
+   (no latency anywhere), excluding the last 3 facts shown. Stage 2: only if stage 1 picked a mastered fact, re-pick
+   among the pool's eligible mastered facts with weight `fluencySlowness`, using a **separate RNG stream**. So latency
+   never changes how many draws go to unmastered facts, and only affects which mastered fact gets fluency review.
 
-**Table-level completion (L1–L8)** — evaluated at session end. G = gating facts of the level, n = |G|,
-a = max(`allowanceMin`, ⌊`allowanceFraction`·n⌋), M = mastered in G, P = provisional in G, T = table facts.
-- **R1** `M + P ≥ n − a` and `M ≥ ⌈(n − a)/2⌉` → L1 8/9 · L2 7/8 · L3 6/7 · L4 5/6 · L5 4/5 · L6 3/4 · L7 2/3 · L8 2/3.
-- **R2** no fact in G is struggling.
-- **R3** at most `maxStrugglingTableFacts` (1) struggling facts in T (intro and earlier-owned table facts included).
-- **R4** first-answer accuracy ≥ `levelAccuracyMin` (85%) over the last `levelAccuracyWindow` (20) answers at this level
-  with source draw or confirm. Fewer than 20 such answers → R4 fails.
-- **R5** ≥ `minSessionsAtLevel` (2) finished sessions at this level.
-"Most facts" = R1. "Allowed incomplete" = a (learning or provisional, never struggling). "Real sore spot" = struggling.
+**Table-level completion (L1–L8)** — evaluated at session end. G = gating facts, n = |G|,
+a = max(`allowanceMin`, ⌊`allowanceFraction`·n⌋), M = mastered in G, T = table facts.
+- **R1** `M ≥ n − a` → L1 8/9 · L2 7/8 · L3 6/7 · L4 5/6 · L5 4/5 · L6 3/4 · L7 2/3 · L8 2/3. ("Most facts".)
+- **R2** no fact in G is struggling. (The ≤ a unfinished facts must be learning or new — "allowed incomplete".)
+- **R3** at most `maxStrugglingTableFacts` (1) struggling facts in T. ("No cluster of sore spots"; sore spot = struggling.)
+- **R4** accuracy ≥ `levelAccuracyMin` over the last `levelAccuracyWindow` evidence answers at this level. Fewer → fail.
+- **R5** ≥ `minSessionsAtLevel` finished sessions at this level.
 
-**Mixed level (L9) completion** — over answers at L9 with source draw or confirm: last `mixedWindow` (50) accuracy ≥
-`mixedAccuracyMin`, spanning ≥ `mixedMinSessions` (3) sessions on ≥ `mixedMinDays` (2) calendar days, any mode, and at
-most `mixedMaxStruggling` (2) struggling facts among all 55.
+**Mixed level (L9) completion (option B + V4)** — take the shortest suffix of the L9 evidence buffer that contains
+≥ `mixedMinAnswers` (50) answers **and** answers from ≥ `mixedMinSessions` (3) sessions (**V4**: extends back as far as
+needed; buffer holds `evidenceBufferMax` = 300). Complete when that suffix exists, its accuracy ≥ `mixedAccuracyMin`
+(0.85), it spans ≥ `mixedMinDays` (2) calendar days, and ≤ `mixedMaxStruggling` (2) of all 55 facts are struggling.
+Any mode counts. L9 is consolidation, not re-certification (owner); capstone redesign revisited after T10.
+
+**Per-level evidence buffer** (contract): `SkillProgress.evidence[levelId]` = last `evidenceBufferMax`
+`{ factId, correct, sessionId, dayKey }` for **counted attempts with source draw** at that level. R4 and L9 read only
+this. It is a derived view; the raw log (D11) remains the source of truth.
 
 **Carry-over.** Nothing blocks progression beyond R1–R5. Unmastered facts become carried review.
 
-**Per-level answer buffer** (contract): `SkillProgress.levelAnswers[levelId]` keeps the last 50
-`{ correct, source, sessionId, dayKey }` — R4 and the L9 rule read only this.
-
 ### D3 — Personal records and wrong-answer flow  — REVISED
-- **Wrong answer:** soft reveal ("7 × 8 = 56"), stays until the kid taps Next / presses Enter; the question ends; the miss
-  counts; reinforcement is scheduled. No retyping. The session clock keeps running (real time).
+- **Wrong answer:** soft reveal card ("7 × 8 = 56") stays until the kid taps the card itself (or a small "Got it"
+  affordance, or presses Enter) — never a "Next" button; the question ends; the miss counts; reinforcement is
+  scheduled. No retyping. The session clock keeps running (real time).
 - **Clock:** real elapsed gameplay time. When the app is hidden (visibilitychange), the clock pauses and the on-screen
   question is discarded (not counted, not logged); a new question is drawn on resume.
 - Answer latency tracked per attempt, never used in records.
 - **Key:** `skillId + levelId + mode + rulesVersion`.
-- **Eligible:** run completed and accuracy ≥ `recordMinAccuracy` (90%) over answers with source draw or confirm.
+- **Eligible:** run completed and accuracy ≥ `recordMinAccuracy` (90%) over answers with source draw.
 - **Record = fastest eligible real elapsed time.** First eligible run at a key = baseline (no "new record" moment/XP/badge).
 - Shown (play pace line, best time, record moments) only on completed levels and L10. On incomplete levels records are
   tracked silently; play shows fact progress instead; results show the time neutrally.
@@ -221,10 +234,10 @@ the game offers (never forces) the level below.
 1. Take v1 `recentAttempts` (≤ 8 per fact) with `atMs` within `inferenceMaxAgeDays` (30) of migration. Older → ignored.
 2. Reconstruct sessions: all attempts sorted by time; a gap ≥ 30 min starts a new session. Mark `sessionInferred: true`,
    `source: 'draw'`, `levelId: null`. Migration only; v2 IDs authoritative afterwards.
-3. Recompute status under D2 (fast-track and provisional cannot come from inferred-only evidence).
+3. Recompute status under D2 (fast-track cannot come from inferred-only evidence; rule (b) may).
 4. Per table level L1–L8 (n, a as in D2):
    - **Evidenced:** ≥ n − a gating facts have ≥ `inferenceMinAttemptsPerFact` (3) counted attempts.
-   - **Passes:** evidenced, R1 with M ≥ n − a (no provisional), R2, R3, and counted accuracy on gating facts ≥ 85%.
+   - **Passes:** evidenced, R1, R2, R3, and counted accuracy on gating facts ≥ 85%.
    - **Clearly fails:** evidenced and (≥ 2 gating facts struggling, or counted accuracy on gating facts < 70% over ≥ 10
      counted attempts).
 5. Walk L1 → L8; s = first level that does not pass.
@@ -239,7 +252,7 @@ the game offers (never forces) the level below.
 "Progress level" = the lowest unlocked level not yet completed (her frontier).
 - **Per correct answer:** +1 on the progress level (and any uncompleted level); on completed levels +1 per 5 correct.
 - **Completion bonus:** Quick 10 · Practice 25 · Rush 100. On completed levels × 0.2 (2 · 5 · 20), except the first
-  finish of each level+mode, which pays full. Perfect session (100% of draw/confirm answers) +50% of the bonus paid.
+  finish of each level+mode, which pays full. Perfect session (100% of draw answers) +50% of the bonus paid.
 - **One-time events:** fact `everMastered` becomes true +5 · level completed by play +100 · badges (no XP).
 - **Record beaten** (not baseline) on the progress level only: +25, at most once per calendar day overall.
 - Placement, inference and migration: 0 XP.
@@ -257,7 +270,8 @@ Mixed 1–10 Quick at ≥ 90% accuracy against targets from her own L9 median an
 gold 0.7×). Not built this sprint.
 
 ### D8 — Process  — ACCEPTED
-See PLAN.md "Operating loop". Learner simulator (T-SIM) runs before thresholds are frozen.
+See PLAN.md "Operating loop". The learner simulator (`tools/sim`) is the reference model of these rules; every rule
+change must pass it (D12) before it reaches DECISIONS.
 
 ### D9 — Canonical fact identity  — ACCEPTED (frozen in T0)
 - `factId = \`${min(a,b)}x${max(a,b)}\``, integer factors 1–12, base 10, no leading zeros, lowercase `x`.
@@ -269,6 +283,35 @@ See PLAN.md "Operating loop". Learner simulator (T-SIM) runs before thresholds a
 - Generic hook: `MathSkill.conceptIdFor(question)`; commutative normalization is multiplication-specific.
 - Question requests with target facts must be honored exactly; the band/stretch fallback in `resolvePool` is removed (T5).
 - Tests: 100 ordered pairs 1–10 → 55 IDs; answering 8×7 updates `7x8`; migration merges a stray `8x7`.
+
+### D10 — Evidence marks (visible progress)  — ACCEPTED
+- Each fact shows up to `marksMax` (3) marks. Marks are an **evidence indicator, never a partial mastery award**.
+- `marks(f)` = 0 if new or struggling; otherwise min(3, `cW`) — correct counted answers among the last 4.
+  A mastered fact shows a distinct "mastered" state instead of marks.
+- Recomputed from evidence after every answer, so marks go down or disappear when misses enter the window.
+- Session-level visible progress event ("meaningful mark advancement"): the sum of marks + 3×mastered over the current
+  level's table facts is higher at session end than at session start.
+- No XP, badges or sounds attach to marks by themselves (they are information, not rewards).
+- Sim re-run: experience-stuck counts mark advancement as visible progress (T-SIM2).
+
+### D11 — Raw attempt log vs evidence view  — ACCEPTED (T0 contract)
+- **Persisted raw history** (source of truth): every answered question — regular draws, misses, reintroduce and
+  later-check items, placement — with factId, presented orientation, correct, given answer, latencyMs, atMs,
+  sessionId, sessionInferred, levelId, mode, source, and whether it was a replay of a completed level. Plus session
+  records (start/end, mode, level, visibility pauses, questions discarded on hide).
+- **Evidence view** (derived): counted attempts, per-fact status inputs, per-level evidence buffers. Pure functions of
+  the raw log + RULES; can be recomputed ("replay history under new rules").
+- Persisted per-fact evidence caches are allowed for speed but must be recomputable from the raw log.
+- Storage: compact encoding; cap `rawLogMaxAttempts` (20 000). On overflow evict the oldest whole sessions from the raw
+  log only — never evidence caches, progress, records or player state. v1 migrated attempts are stored in the raw log
+  with `sessionInferred: true`.
+
+### D12 — Simulator invariants  — ACCEPTED
+- **Exact:** replaying any attempt log with latencies scaled ×0.3 and ×3 yields identical status, counted-evidence
+  flags, level completion and record eligibility.
+- **Statistical (slow vs fast, p = 0.90):** paired common random seeds; per level |Δmean sessions| ≤ 0.25,
+  |Δp90| ≤ 1, |Δstuck>20| ≤ 2 pp; KS test on cumulative sessions to L9 not significant at 0.05.
+- The simulator exits non-zero if either fails.
 
 ---
 
@@ -301,3 +344,18 @@ See PLAN.md "Operating loop". Learner simulator (T-SIM) runs before thresholds a
 | 7 | L1 first level-up ~2× others | Gating ×2 / intro ×1 (D1) |
 | 8 | 2-session rule | Kept for mastery; provisional mastery adopted for visible progress; on/off PENDING-SIM |
 | 9 | Inference: 70% = perfection on small levels; stale data; "clearly fails" undefined | n − a facts with ≥ 3 attempts; 30-day cutoff; exact clear-fail rule (D5b) |
+
+### Round 3 — simulator + checker (owner rulings)
+| # | Finding | Disposition |
+|---|---|---|
+| Speed | Rev-3 and naive option 2 fail E(b); budget-neutral passes except one median-boundary cell (checker: seed artifact) | Budget-neutral option 2 (D2 step 6); E(b) restated (D12) |
+| Provisional | Fires for ≤ 1.6% of gating facts; slows Practice | Removed with confirm items |
+| V1 | Rule (b) spacing erased by ≥ 4 counted answers in one session | Fixed (D2 status (b)) |
+| V4 | L9 window unfinishable for Rush / clean Practice | Fixed (D2 L9) |
+| L9 C | Capstone traps 28–63% of learners; builder's Cr too lenient | Option B @ 0.85 + V4; capstone after T10 |
+| L9 threshold | 0.88 costs near-threshold learners 1–10 sessions, doubles stuck | 0.85 |
+| R4 | Frequent sole blocker near threshold | Kept 0.85/20; first knob after T10 |
+| Experience stuck | 66–91% of learning learners in all-Quick go 3+ sessions without visible progress | Evidence marks (D10); re-measure |
+| Buffer | Draw/confirm-only vs all sources | Evidence buffer = counted draws; raw log keeps everything (D11) |
+| Untested | allowance, statusWeight, struggle, caps, inference, drop-down | rev-3 defaults, tune after T10 |
+
