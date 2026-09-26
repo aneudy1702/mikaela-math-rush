@@ -157,7 +157,8 @@ answers in only one session is never mastered. P(mastered | |W| = 4, spacing met
 Set silently by migration/inference.
 
 **Question selection** (per question, in order):
-1. **Level pool** = table facts of current level (L1: intro facts capped at `introShareMaxL1` of draws, running cap).
+1. **Level pool** = table facts of current level (L1: intro facts capped at `introShareMaxL1` of draws, running cap;
+   reintroduce/later-check items for intro facts count toward the cap but are never blocked by it — lead ruling after T5 review).
    **Review pool** = facts owned by earlier levels, not in the table. **Carried** = review facts with status learning
    or struggling.
 2. **Queue** — due reintroduce / later-check items are drawn first, subject to steps 4–5. A later-check is scheduled only
@@ -200,7 +201,9 @@ this. It is a derived view; the raw log (D11) remains the source of truth.
   affordance, or presses Enter) — never a "Next" button; the question ends; the miss counts; reinforcement is
   scheduled. No retyping. The session clock keeps running (real time).
 - **Clock:** real elapsed gameplay time. When the app is hidden (visibilitychange), the clock pauses and the on-screen
-  question is discarded (not counted, not logged); a new question is drawn on resume.
+  question is discarded (not counted, not logged); a new question is drawn on resume. Discard restores selection state
+  exactly as if the question was never shown: counters, last-3 list (the discarded fact is removed), and any consumed
+  queue item with its original due index; RNG streams stay advanced (lead ruling after T5 review).
 - Answer latency tracked per attempt, never used in records.
 - **Key:** `skillId + levelId + mode + rulesVersion`.
 - **Eligible:** run completed and accuracy ≥ `recordMinAccuracy` (90%) over **all regular (source draw) answers in the
