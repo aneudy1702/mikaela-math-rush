@@ -3,6 +3,10 @@ import { motion } from 'framer-motion'
 import { gameAssets } from '../assets'
 import { Keypad } from '../components/Keypad'
 import {
+  PersistenceBanner,
+  type PersistenceNoticeItem,
+} from '../components/PersistenceBanner'
+import {
   applyAttemptToEvidence,
   applyPlacementResult,
   emptyFactEvidence,
@@ -23,6 +27,8 @@ import {
 
 interface PlacementScreenProps {
   profile: LearnerProfile
+  notices?: readonly PersistenceNoticeItem[]
+  onDismissNotice?: (id: string) => void
   persistenceWarning?: string | null
   onCheckpoint: (profile: LearnerProfile) => void
   onDone: (profile: LearnerProfile) => void
@@ -81,6 +87,8 @@ function closePlacementSession(
 
 export function PlacementScreen({
   profile,
+  notices = [],
+  onDismissNotice,
   persistenceWarning,
   onCheckpoint,
   onDone,
@@ -283,6 +291,7 @@ export function PlacementScreen({
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
         />
+        <PersistenceBanner notices={notices} onDismiss={onDismissNotice} />
         <span className="section-eyebrow">Warm-up complete</span>
         <h1>Start at Level {level.index}</h1>
         <p className="placement-result-title">{level.title}</p>
@@ -317,6 +326,7 @@ export function PlacementScreen({
             {muted ? '×' : '♪'}
           </button>
         </div>
+        <PersistenceBanner notices={notices} onDismiss={onDismissNotice} />
         {persistenceWarning ? (
           <div className="save-warning" role="status">
             <strong>Progress is not being saved.</strong> {persistenceWarning}
@@ -375,6 +385,7 @@ export function PlacementScreen({
         </button>
       </div>
 
+      <PersistenceBanner notices={notices} onDismiss={onDismissNotice} />
       {persistenceWarning ? (
         <div className="save-warning" role="status">
           <strong>Progress is not being saved.</strong> {persistenceWarning}

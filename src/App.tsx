@@ -144,7 +144,9 @@ function initializeApp(
     preferences.inferenceHandledMigrationAtMs === migrationAtMs
   let changedByInference = false
 
+  let ranInference = false
   if (migrationAtMs !== undefined && !hasStartDecision && !alreadyHandled) {
+    ranInference = true
     const inference = inferenceRunner(profile, undefined, load)
     preferences.inferenceHandledMigrationAtMs = migrationAtMs
     if (inference.outcome === 'recommend' && inference.recommendedLevelId) {
@@ -157,14 +159,21 @@ function initializeApp(
     } else {
       preferences.startPrompt = { kind: 'warm-up' }
     }
-    writeUiPreferences(uiStorage, preferences)
   }
 
   const bootstrapSaveResults: SaveResult[] = []
   // A V1 migration must be written even when inference cannot recommend a level, or
   // every reload would migrate the same V1 backup again.
-  if (load?.source === 'v1-migrated' || changedByInference) {
+  const needsSave = load?.source === 'v1-migrated' || changedByInference
+  if (needsSave) {
     bootstrapSaveResults.push(store.save(profile))
+  }
+  // The "already handled" marker is what stops inference from running again. Write it
+  // only after a required save succeeds, so a failed save retries instead of dropping
+  // the unlock. This session still keeps the prompt in memory.
+  const saveFailed = bootstrapSaveResults.some((result) => result.status === 'failed')
+  if (ranInference && !saveFailed) {
+    writeUiPreferences(uiStorage, preferences)
   }
 
   return {
@@ -630,12 +639,13 @@ export function App({
     commitPreferences({ ...preferences, dropDownDismissedFor: dropKey ?? undefined })
   }
 
-  const homeNotices = [
+  const notices = [
     ...pendingNoticeItems(pendingNotices),
     ...runtimeNotices,
   ].filter(
     (notice, index, all) =>
-      all.findIndex((candidate) => candidate.message === notice.message) === index,
+      all.findIndex((candidate) => candidate.message === notice.message) === index &&
+      notice.message !== persistenceWarning,
   )
 
   if (screen === 'placement') {
@@ -643,6 +653,8 @@ export function App({
       <div className="app-shell">
         <PlacementScreen
           profile={profile}
+          notices={notices}
+          onDismissNotice={dismissNotice}
           persistenceWarning={persistenceWarning}
           onCheckpoint={checkpointPlacement}
           onDone={finishPlacement}
@@ -667,6 +679,8 @@ export function App({
           levelProgress={active.levelProgress}
           showRecordInfo={active.engine.isReplay}
           bestTimeMs={active.bestTimeMs}
+          notices={notices}
+          onDismissNotice={dismissNotice}
           persistenceWarning={persistenceWarning}
           onSubmit={handleSubmit}
           onDismissReveal={dismissReveal}
@@ -685,6 +699,8 @@ export function App({
           summary={result.summary}
           levelTitle={result.levelTitle}
           levelProgress={result.levelProgress}
+          notices={notices}
+          onDismissNotice={dismissNotice}
           persistenceWarning={persistenceWarning}
           onAgain={() => startSession(result.summary.mode, result.summary.levelId)}
           onHome={() => setScreen('home')}
@@ -698,7 +714,7 @@ export function App({
       <HomeScreen
         profile={profile}
         levels={visibleLevels}
-        notices={homeNotices}
+        notices={notices}
         persistentWarning={persistenceWarning}
         startPrompt={preferences.startPrompt}
         dropDownPrompt={dropDownPrompt}

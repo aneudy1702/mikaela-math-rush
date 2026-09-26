@@ -242,17 +242,6 @@ export function HomeScreen({
             </div>
           </section>
 
-          <section className="current-level-card" aria-labelledby="current-level-title">
-            <div className="section-heading-row">
-              <div>
-                <span className="section-eyebrow">Current level · {currentLevel.id}</span>
-                <h2 id="current-level-title">{currentLevel.title}</h2>
-              </div>
-              {currentCompleted ? <span className="complete-chip">Completed</span> : null}
-            </div>
-            <FactProgress facts={facts} />
-          </section>
-
           {showPracticeNudge ? (
             <aside className="practice-nudge">
               <img src={gameAssets.icons.practiceTarget} alt="" draggable={false} />
@@ -270,31 +259,6 @@ export function HomeScreen({
                 ×
               </button>
             </aside>
-          ) : null}
-
-          {currentCompleted ? (
-            <section className="records-card" aria-labelledby="records-title">
-              <div className="section-heading-row">
-                <div>
-                  <span className="section-eyebrow">Personal records</span>
-                  <h2 id="records-title">{currentLevel.id} best times</h2>
-                </div>
-                <img src={gameAssets.icons.trophy} alt="" draggable={false} />
-              </div>
-              <div className="record-grid">
-                {modes.map((mode) => {
-                  const key = recordKeyId(
-                    recordKey(profile.progress.skillId, currentLevel.id, mode.id, RULES.rulesVersion),
-                  )
-                  return (
-                    <div key={mode.id}>
-                      <span>{mode.title}</span>
-                      <strong>{formatTime(profile.records[key]?.bestMs)}</strong>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
           ) : null}
 
           <section className="home-modes" aria-labelledby="choose-run-title">
@@ -330,6 +294,42 @@ export function HomeScreen({
             </span>
             <Chevron />
           </button>
+
+          <section className="current-level-card" aria-labelledby="current-level-title">
+            <div className="section-heading-row">
+              <div>
+                <span className="section-eyebrow">Current level · {currentLevel.id}</span>
+                <h2 id="current-level-title">{currentLevel.title}</h2>
+              </div>
+              {currentCompleted ? <span className="complete-chip">Completed</span> : null}
+            </div>
+            <FactProgress facts={facts} />
+          </section>
+
+          {currentCompleted ? (
+            <section className="records-card" aria-labelledby="records-title">
+              <div className="section-heading-row">
+                <div>
+                  <span className="section-eyebrow">Personal records</span>
+                  <h2 id="records-title">{currentLevel.id} best times</h2>
+                </div>
+                <img src={gameAssets.icons.trophy} alt="" draggable={false} />
+              </div>
+              <div className="record-grid">
+                {modes.map((mode) => {
+                  const key = recordKeyId(
+                    recordKey(profile.progress.skillId, currentLevel.id, mode.id, RULES.rulesVersion),
+                  )
+                  return (
+                    <div key={mode.id}>
+                      <span>{mode.title}</span>
+                      <strong>{formatTime(profile.records[key]?.bestMs)}</strong>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          ) : null}
         </main>
 
         <aside className="ladder-card" aria-labelledby="ladder-title">
