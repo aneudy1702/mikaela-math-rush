@@ -3,6 +3,8 @@
  * stretch to 12× when mastery supports higher bands.
  */
 
+import { canonicalFactId, parseFactId } from '../../contracts'
+
 export interface MultFact {
   factId: string
   a: number
@@ -12,20 +14,8 @@ export interface MultFact {
   band: number
 }
 
-/** Canonical commutative fact ID: smaller factor first. */
-export function canonicalFactId(a: number, b: number): string {
-  const lo = Math.min(a, b)
-  const hi = Math.max(a, b)
-  return `${lo}x${hi}`
-}
-
-export function parseFactId(factId: string): { a: number; b: number } {
-  const match = /^(\d+)x(\d+)$/.exec(factId)
-  if (!match) {
-    throw new Error(`Invalid factId: ${factId}`)
-  }
-  return { a: Number(match[1]), b: Number(match[2]) }
-}
+/** D9: the single canonical fact ID implementation and strict parser live in contracts. */
+export { canonicalFactId, parseFactId }
 
 /** Band by larger factor (tables). */
 export function bandForFactors(a: number, b: number): number {

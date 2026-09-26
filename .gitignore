@@ -25,3 +25,6 @@ dist-ssr
 .vercel
 .env*
 !.env*.example
+
+# Agent worktrees
+.claude/worktrees/
