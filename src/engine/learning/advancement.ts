@@ -365,8 +365,9 @@ export function appendEvidenceBuffer(
  * that happened after it was set, so replaying attempts older than the flag must not
  * clear it again.
  *
- * Note: the raw log may have evicted old sessions (D11 cap) that the caches still reflect.
- * Rebuild only when the caches are stale (migration) or rules change.
+ * Must run ONLY when `evidenceStale` is true (v1 migration, where the raw log is complete).
+ * Never after raw-log eviction, quota trimming or quarantine/salvage: the caches are then
+ * authoritative and a rebuild would roll status back (DECISIONS D11 erratum).
  */
 export function rebuildEvidence(
   rawLog: RawLog,

@@ -114,7 +114,7 @@ export interface StartLevelInference {
 
 /** D10 session-level visible progress over the current level's table facts. */
 export interface MarksProgress {
-  /** Σ marks + 3 × mastered at session start. */
+  /** Σ displayValue over the level's table facts at session start (mastered = 4, else marks 0–3; D10). */
   before: number
   after: number
   /** after > before. */

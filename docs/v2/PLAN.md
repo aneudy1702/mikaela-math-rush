@@ -188,6 +188,18 @@ Learning never generates questions (existing rule).
 - Accept: scripted e2e: fresh profile, 90%-accurate simulated kid completes L1 within D2's estimate and never sees a
   fact outside L1 + review; XP never touches facts.
 
+### Wave-1 carry-over (from verifiers)
+- **T7:** only `kind: 'play'` sessions are logged, earn XP/badges or touch records (placement/inferred never);
+  apply each session exactly once (idempotent by sessionId); call `evaluateBadges` with the pre-session player;
+  set `player.lastRecordXpDayKey` when record XP is paid; call `detectComebacks`; pass all 55 fact IDs to
+  `evaluateLevelCompletion`; `rebuildEvidence` only when `evidenceStale`; never advance/unlock into deferred L10;
+  surface `SaveResult` failures and `lastLoad().quarantine` (incl. `newer-version`, `backup-required`, `quota`).
+- **T2 follow-up (small, any wave):** `buildSessionLogEntry` rejects `kind !== 'play'`; test double-applying a
+  non-best eligible session.
+- **T3 follow-up:** test pinning the `'v1-inferred-'` prefix to persistence's `INFERRED_SESSION_PREFIX`.
+- **T1 follow-up (optional):** L9/L10 `tables: [1..10]`.
+- **T8:** "Baseline set" wording; hide L10; show save/quarantine notices; use `playerLevelInfo` for the XP bar.
+
 ### T8 — App wiring + screens  (absorbs former U0)
 - Depends T7, T6. Owns: `src/App.tsx`, `src/screens/**`, `src/components/**`, `src/index.css`, and `src/engine/persistence/**`
   for deprecated-field removal only.

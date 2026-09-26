@@ -44,12 +44,16 @@ export {
 } from './placement'
 
 export {
+  appendEvidenceBuffer,
   applyAttemptToEvidence,
   countedAttempts,
   countedFlags,
   detectComebacks,
   emptyFactEvidence,
   evaluateAdvancement,
+  evaluateLevelCompletion,
+  evidenceBufferEntryFor,
+  factDisplayValue,
   evaluateMixedLevel,
   evaluateTableLevel,
   factMarks,
@@ -57,6 +61,7 @@ export {
   isLikelyCorrect,
   levelAllowance,
   levelMarksTotal,
+  MASTERED_DISPLAY_VALUE,
   rebuildEvidence,
   type AdvancementInput,
 } from './advancement'

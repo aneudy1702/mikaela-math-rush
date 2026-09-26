@@ -314,6 +314,11 @@ change must pass it (D12) before it reaches DECISIONS.
 - **Failure safety (owner):** corruption or full storage must never silently roll the learner back to an older save or
   erase newer progress. A damaged raw log is quarantined, not a reason to re-migrate v1; rejected blobs are backed up
   before any overwrite.
+- **Erratum (PROPOSED, pending owner):** "recomputable from the raw log" holds only while the raw log is complete.
+  After eviction, quota trimming or quarantine the incremental evidence caches are authoritative; `rebuildEvidence`
+  runs only when `evidenceStale` is true (v1 migration). Rule changes then apply to retained history plus forward
+  play only. (Alternative: an evidence checkpoint contract field; not needed unless retroactive replay across evicted
+  history becomes a requirement.)
 - Storage: compact encoding; cap `rawLogMaxAttempts` (20 000). On overflow evict the oldest whole sessions from the raw
   log only — never evidence caches, progress, records or player state. v1 migrated attempts are stored in the raw log
   with `sessionInferred: true`.
