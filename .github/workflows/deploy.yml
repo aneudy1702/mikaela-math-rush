@@ -1,62 +1,56 @@
-name: Deploy to Vercel
+name: Deploy to Heroku
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: vercel-${{ github.ref }}
+  group: heroku-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      deployments: write
-    env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
+      - run: npm ci
+      - run: npm test
 
-      - name: Install dependencies
-        run: npm ci
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Run tests
-        run: npm test
+      - name: Install Heroku CLI
+        run: curl -sL https://cli-assets.heroku.com/install-ubuntu.sh | sh
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel project settings
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build for Vercel
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel
-        id: deploy
+      - name: Deploy to Heroku
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          else
-            url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          set -euo pipefail
+          if [ -z "${HEROKU_API_KEY:-}" ] || [ -z "${HEROKU_APP_NAME:-}" ]; then
+            echo "Missing HEROKU_API_KEY or HEROKU_APP_NAME secrets"
+            exit 1
           fi
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "Deployed: $url"
-
-      - name: Summary
-        run: |
-          echo "### Deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          cat > ~/.netrc <<EOF
+          machine api.heroku.com
+            login _
+            password ${HEROKU_API_KEY}
+          machine git.heroku.com
+            login _
+            password ${HEROKU_API_KEY}
+          EOF
+          chmod 600 ~/.netrc
+          heroku git:remote -a "$HEROKU_APP_NAME"
+          git push heroku HEAD:main --force

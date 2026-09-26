@@ -9,12 +9,18 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "start": "serve -s dist -l tcp://0.0.0.0:$PORT",
+    "heroku-postbuild": "vite build"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
     "framer-motion": "^13.4.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "serve": "^14.2.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -22,11 +28,11 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^29.1.1",
     "oxlint": "^1.81.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.3.0",
     "vitest": "^5.0.2"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

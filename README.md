@@ -4,7 +4,7 @@ Phone-friendly multiplication fluency arcade for Mikaela. Dark neon sporty UI, a
 
 ## Stack
 
-Vite + React + TypeScript · Framer Motion · sample SFX + loop music · PWA (Add to Home Screen) · localStorage learner profile
+Vite + React + TypeScript · Framer Motion · sample SFX + loop music · PWA (Add to Home Screen) · localStorage learner profile · Heroku
 
 ## Run locally
 
@@ -22,6 +22,22 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 | `npm run dev` | Dev server on port **43127** |
 | `npm test` | Vitest unit tests (engine) |
 | `npm run build` | Production build |
+| `npm start` | Serve `dist` (used on Heroku) |
+
+## Deploy (Heroku)
+
+GitHub Actions deploys `main` to Heroku. Required repo secrets:
+
+| Secret | Value |
+| --- | --- |
+| `HEROKU_API_KEY` | Account → Account settings → API Key |
+| `HEROKU_APP_NAME` | Heroku app name (e.g. `mikaela-math-rush`) |
+
+```bash
+heroku create mikaela-math-rush
+heroku buildpacks:set heroku/nodejs
+git push heroku main
+```
 
 ## Play (V1)
 
