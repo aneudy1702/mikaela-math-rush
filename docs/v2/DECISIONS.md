@@ -314,11 +314,21 @@ change must pass it (D12) before it reaches DECISIONS.
 - **Failure safety (owner):** corruption or full storage must never silently roll the learner back to an older save or
   erase newer progress. A damaged raw log is quarantined, not a reason to re-migrate v1; rejected blobs are backed up
   before any overwrite.
-- **Erratum (PROPOSED, pending owner):** "recomputable from the raw log" holds only while the raw log is complete.
-  After eviction, quota trimming or quarantine the incremental evidence caches are authoritative; `rebuildEvidence`
-  runs only when `evidenceStale` is true (v1 migration). Rule changes then apply to retained history plus forward
-  play only. (Alternative: an evidence checkpoint contract field; not needed unless retroactive replay across evicted
-  history becomes a requirement.)
+- **Erratum (ACCEPTED, owner):** "recomputable from the raw log" holds only while the raw log is complete. Once history
+  has been trimmed, evicted or salvaged, the saved v2 evidence/mastery state is **authoritative**. Recomputation runs
+  only (a) immediately after v1 → v2 conversion (`evidenceStale`), or (b) if rules change later, over whatever retained
+  history exists plus future play. Historical recomputation is **best-effort**: evicted raw history cannot be
+  reconstructed. No evidence-checkpoint system in V2.
+- **Persistence invariant (owner):** a persistence failure must never silently alter or roll back mastery, XP, badges,
+  records, or unlocked/completed levels. Every such outcome is surfaced through `lastLoad()` / `SaveResult` and the
+  app must show a visible notice (T7/T8).
+- **Damaged raw log + full storage (owner, T0.3):** back up only the damaged raw-log fragment. If even that does not
+  fit, preserve the current valid v2 learner state, let the save proceed, never crash or roll back, and surface a
+  notice that some damaged history could not be backed up. Current mastery, XP, badges, records and level progress
+  take priority over preserving corrupted history.
+- **Unreadable v2 save (owner):** (1) back up the unreadable payload if possible, (2) fall back to a valid v1 save if
+  one exists, (3) otherwise start fresh, (4) surface a notice that saved progress could not be read. Never present a
+  fresh profile as if loading succeeded. Newer-version saves stay read-only (never overwritten). Restore UI: after V2.
 - Storage: compact encoding; cap `rawLogMaxAttempts` (20 000). On overflow evict the oldest whole sessions from the raw
   log only — never evidence caches, progress, records or player state. v1 migrated attempts are stored in the raw log
   with `sessionInferred: true`.

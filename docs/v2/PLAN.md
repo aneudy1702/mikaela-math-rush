@@ -1,6 +1,6 @@
 # Math Rush V2 — Learning Journey: Plan of Attack
 
-Status: REVISION 4 — APPROVED. T-SIM done; T0 + T-SIM2 in progress.
+Status: REVISION 4 — APPROVED. Waves −1, 0, 1 merged; wave 2 in progress.
 Decisions live in [DECISIONS.md](DECISIONS.md). This file is the ticket graph and the operating loop.
 
 ## Mental model (three systems)
@@ -66,7 +66,7 @@ Learning never generates questions (existing rule).
 | 0 | T-SIM2 (parallel with T0) | single | Sim updated to rev-4 rules, D12 invariants pass, experience-stuck with marks reported |
 | 0 | T0 | single | Owner approves frozen contracts; verifier passes |
 | 1 | T1, T2, T3, T4, T0.1 | **5 in parallel** (disjoint modules) | Each verified; merged to `v2/integration` in order T1, T4, T2, T3 |
-| 2 | T5, T6 | 2 in parallel | Verified + merged |
+| 2 | T5, T6, T0.3 | 3 in parallel | Verified + merged |
 | 3 | T7 | single (integration seam) | Scripted engine e2e passes; owner gate |
 | 4 | T8 | single (owns `App.tsx` + screens) | Owner reviews screenshots (desktop + phone) |
 | 5 | T9 | verifier only | Owner approves PR `v2/integration → main` and deploy |
@@ -140,6 +140,14 @@ Learning never generates questions (existing rule).
 - Tests: damaged-rawLog blob; v1 8-attempt truncation; v2 save → load round-trip after the cap; replace the
   tautological "identical" test with a comparison against raw v1 `facts`.
 
+### T0.3 — Persistence follow-up  *(wave 2, parallel)*
+- Owns: `src/engine/persistence/**`, tests.
+- Implements DECISIONS D11 "Damaged raw log + full storage" and "Unreadable v2 save" and the persistence invariant:
+  back up only the damaged raw-log fragment; if it cannot fit, save anyway (valid v2 state wins) and surface a
+  notice; unreadable payload → backup if possible → v1 → fresh, always with a load outcome the UI must show; replace
+  the `backup-required` refusal accordingly (newer-version stays read-only).
+- Accept: no path alters/rolls back mastery, XP, badges, records or levels without a surfaced outcome (test matrix).
+
 ### T1 — Level ladder data  (D1)
 - Owns: `src/engine/curriculum/**`, `src/engine/content/multiplication/levels.ts` (new), tests.
 - The 10 levels per D1; helpers `getLevel`, `nextLevel`, `levelsUpTo`.
@@ -167,7 +175,8 @@ Learning never generates questions (existing rule).
 
 ### T5 — Level-scoped selection  (D2, P1, P2, P8)
 - Also: one `canonicalFactId` (plugin uses the strict contracts version); multiplication plugin implements `conceptIdFor`.
-- Depends T1, T4. Owns: `src/engine/learning/selection.ts` (selection functions), `src/engine/orchestrator/**`, tests.
+- Depends T1, T4. Owns: `src/engine/learning/selection.ts` (selection functions), `src/engine/orchestrator/**`,
+  `src/engine/content/multiplication/{plugin.ts,facts.ts}` (canonical-ID dedupe + `conceptIdFor` only), tests.
 - Pool = level table facts + review of earlier-owned facts (15% → 25% with carried facts); priority from T4; success
   floor ≥ 40%; remove `stretch`; reinforcement queue filtered to current + earlier levels.
 - Accept: property test over 1,000 draws **including queue-driven draws** at L7 → zero facts outside L1–L7; success
