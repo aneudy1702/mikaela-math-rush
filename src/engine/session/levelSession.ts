@@ -156,7 +156,7 @@ export interface LevelSessionOptions {
   /** Default: generated. Must be unique in the raw log and must not use the migration prefix. */
   sessionId?: string
   curriculum?: SkillCurriculum
-  /** `store.lastLoad()`. Its quarantine flag blocks the evidence rebuild; its notice is surfaced. */
+  /** `store.lastLoad()`. With stale evidence its damaged-log flag still rebuilds from the salvaged log (D11 clarification); its notice is surfaced. */
   load?: Pick<ProfileLoadResult, 'quarantine' | 'notice' | 'pendingNotices' | 'readOnly'> | null
   /**
    * @internal Simulations only; production callers must not pass this.
@@ -586,7 +586,7 @@ export class LevelSessionEngine {
 
     const closedDanglingSessions = closeDanglingSessions(profile)
 
-    // D11 erratum: rebuild ONLY when evidenceStale — and never from a salvaged raw log.
+    // D11 erratum: rebuild ONLY when evidenceStale (including a salvaged log, whose caches were never computed).
     let rebuiltEvidence = false
     const damaged = Boolean(options.load?.quarantine?.evidenceStaleWithDamagedLog) && profile.progress.evidenceStale
     if (profile.progress.evidenceStale) {

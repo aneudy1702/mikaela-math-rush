@@ -180,7 +180,7 @@ export interface ProfileQuarantine {
  *   nobody has acknowledged yet (they survive reloads). T8 shows them and calls
  *   `store.acknowledgeNotices()` once the learner/parent has seen them.
  * - `readOnly` is true (newer build's save: progress will not be saved here).
- * - `quarantine.evidenceStaleWithDamagedLog` is set (T7 decides about evidence rebuild).
+ * - `quarantine.evidenceStaleWithDamagedLog` is set (the session engine rebuilds from the salvaged log and surfaces an alert; D11 clarification).
  */
 export interface ProfileLoadResult {
   profile: LearnerProfile

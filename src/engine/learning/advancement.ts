@@ -366,8 +366,9 @@ export function appendEvidenceBuffer(
  * clear it again.
  *
  * Must run ONLY when `evidenceStale` is true (v1 migration, where the raw log is complete).
- * Never after raw-log eviction, quota trimming or quarantine/salvage: the caches are then
- * authoritative and a rebuild would roll status back (DECISIONS D11 erratum).
+ * Never after raw-log eviction, quota trimming or salvage of an already-built cache: the caches are
+ * then authoritative and a rebuild would roll status back (DECISIONS D11 erratum). A salvaged log
+ * with `evidenceStale` still set IS rebuilt: those caches were never computed (D11 clarification).
  */
 export function rebuildEvidence(
   rawLog: RawLog,

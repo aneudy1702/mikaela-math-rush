@@ -67,7 +67,6 @@ interface PlayOpts {
   load?: LevelSessionOptions['load']
 }
 
-
 function makeEngine(profile: LearnerProfile, clock: Clock, o: PlayOpts): LevelSessionEngine {
   return new LevelSessionEngine({
     profile,
