@@ -37,30 +37,61 @@ export interface ProfileStore {
 
 export type ProfileLoadSource = 'v2' | 'v1-migrated' | 'fresh'
 
-/** Why a stored V2 blob was (partly) rejected. */
+/**
+ * Why a stored V2 blob was (partly) rejected.
+ *
+ * UI OBLIGATION (T7/T8): every quarantine outcome must be surfaced to the learner/parent
+ * by the app (e.g. "some history could not be read — a backup was kept", or "this save
+ * is from a newer version of the app — progress will not be saved here"). Handling it
+ * silently is not allowed.
+ */
 export interface ProfileQuarantine {
   /**
    * `raw-log-damaged`: the profile loaded with progress/XP/records intact; only the raw log
-   * was (partly) dropped. `unreadable`: nothing usable (bad JSON, wrong version, no
+   * was (partly) dropped. `unreadable`: nothing usable (bad JSON, old/unknown version, no
    * progress/player); the profile came from V1 migration or is fresh.
+   * `newer-version`: the blob was written by a newer build (version > 2). It is never
+   * migrated, backed up or overwritten: the store is read-only and the returned profile
+   * is a fresh placeholder.
    */
-  kind: 'raw-log-damaged' | 'unreadable'
+  kind: 'raw-log-damaged' | 'unreadable' | 'newer-version'
   detail: string
   /** The original stored blob, byte for byte (what gets backed up). */
   blob: string
   /** Raw-log rows that could not be salvaged (null when unknown). */
   droppedAttempts: number | null
   droppedSessions: number | null
+  /**
+   * `raw-log-damaged` only: the stored profile already had `progress.evidenceStale: true`
+   * (e.g. a V1 migration not yet rebuilt) when its raw log was found damaged. Persistence
+   * never rebuilds evidence and never changes `evidenceStale`, `factEvidence`, `evidence`
+   * or `finishedSessionsByLevel`; but a rebuild from the salvaged (incomplete) raw log
+   * would lose history, so the caller (T7) must decide explicitly whether to rebuild.
+   */
+  evidenceStaleWithDamagedLog?: boolean
 }
 
+/**
+ * UI OBLIGATION (T7/T8): when `quarantine` is set or `readOnly` is true the app must tell
+ * the learner/parent; silent handling is not allowed.
+ */
 export interface ProfileLoadResult {
   profile: LearnerProfile
   source: ProfileLoadSource
-  /** Present when the stored V2 blob was damaged and must be backed up before overwrite. */
+  /** Present when the stored V2 blob was damaged (backed up before overwrite) or newer. */
   quarantine?: ProfileQuarantine
+  /** True when the stored blob is from a newer build: the store refuses every write. */
+  readOnly?: boolean
 }
 
-/** Result of a save; failures never throw into the UI (T0.1). */
+/**
+ * Result of a save; failures never throw into the UI (T0.1).
+ *
+ * UI OBLIGATION (T7/T8): `failed` with reason `newer-version`, `backup-required` or
+ * `quota` (and `error`) means the learner's progress is NOT being saved; the app must
+ * surface it to the learner/parent. `saved-trimmed` should be surfaced too (old raw
+ * history was dropped for space). Silent handling is not allowed.
+ */
 export type SaveResult =
   | { status: 'saved' }
   /** Storage full: saved after evicting the oldest whole raw-log sessions (D11). */
@@ -70,9 +101,10 @@ export type SaveResult =
       /**
        * `quota`: storage full even with an empty raw log. `backup-required`: the stored
        * blob is damaged and its quarantine backup could not be written, so it is not
-       * overwritten. `error`: any other storage/serialization error.
+       * overwritten. `newer-version`: the stored blob was written by a newer build and is
+       * never overwritten by this one. `error`: any other storage/serialization error.
        */
-      reason: 'quota' | 'backup-required' | 'error'
+      reason: 'quota' | 'backup-required' | 'newer-version' | 'error'
       error?: unknown
     }
 
@@ -117,6 +149,8 @@ export type StoredProfileParse =
       droppedSessions: number | null
     }
   | { kind: 'unreadable'; detail: string }
+  /** Parsed, but `version` is a number > 2 (a newer build wrote it). Never overwrite. */
+  | { kind: 'newer-version'; detail: string; version: number }
 
 /**
  * Parse a stored V2 blob and classify it. Validation rests on `progress`, `player` and
@@ -134,6 +168,13 @@ export function parseStoredProfile(json: string): StoredProfileParse {
     return { kind: 'unreadable', detail: 'not JSON' }
   }
   if (!isObject(parsed)) return { kind: 'unreadable', detail: 'not an object' }
+  if (typeof parsed.version === 'number' && parsed.version > 2) {
+    return {
+      kind: 'newer-version',
+      detail: `written by a newer app (version ${parsed.version})`,
+      version: parsed.version,
+    }
+  }
   if (parsed.version !== 2) return { kind: 'unreadable', detail: 'not version 2' }
   if (typeof parsed.learnerName !== 'string') {
     return { kind: 'unreadable', detail: 'missing learnerName' }
@@ -166,12 +207,14 @@ export function parseStoredProfile(json: string): StoredProfileParse {
 }
 
 /**
- * Parse a stored V2 blob. Returns null only when no V2 progress is readable. A blob whose
+ * Parse a stored V2 blob. Returns null when no V2 progress is readable by this build
+ * (unreadable, or written by a newer version — use parseStoredProfile to tell them
+ * apart; a newer blob must never be overwritten). A blob whose
  * raw log is damaged still returns the profile (with the salvaged raw log).
  */
 export function deserializeProfile(json: string): LearnerProfile | null {
   const r = parseStoredProfile(json)
-  return r.kind === 'unreadable' ? null : r.profile
+  return r.kind === 'ok' || r.kind === 'raw-log-damaged' ? r.profile : null
 }
 
 function safeGet(storage: Storage, key: string): string | null {
@@ -185,8 +228,11 @@ function safeGet(storage: Storage, key: string): string | null {
 /**
  * Loading order: V2 blob → else V1 blob migrated → else fresh profile.
  * - V2 with a damaged raw log: loads as `v2` (progress kept) with `quarantine` set.
- * - V2 wholly unreadable: falls through to V1 migration / fresh with `quarantine` set;
- *   callers must back up `quarantine.blob` before overwriting (the store does).
+ * - V2 wholly unreadable (bad JSON, version < 2 / non-numeric, no progress/player): falls
+ *   through to V1 migration / fresh with `quarantine` set; callers must back up
+ *   `quarantine.blob` before overwriting (the store does).
+ * - V2 key holds a newer version (> 2): a fresh placeholder with `readOnly: true` and
+ *   `quarantine.kind 'newer-version'`; V1 is not migrated and nothing may be written.
  * Never writes.
  */
 export function loadProfileFromStorage(
@@ -210,6 +256,24 @@ export function loadProfileFromStorage(
           blob: v2,
           droppedAttempts: r.droppedAttempts,
           droppedSessions: r.droppedSessions,
+          ...(r.profile.progress.evidenceStale
+            ? { evidenceStaleWithDamagedLog: true }
+            : {}),
+        },
+      }
+    }
+    if (r.kind === 'newer-version') {
+      // Never migrate or fall back: a placeholder, and the store stays read-only.
+      return {
+        profile: createEmptyProfile(),
+        source: 'fresh',
+        readOnly: true,
+        quarantine: {
+          kind: 'newer-version',
+          detail: r.detail,
+          blob: v2,
+          droppedAttempts: null,
+          droppedSessions: null,
         },
       }
     }
@@ -360,6 +424,10 @@ function writeProfile(storage: Storage, profile: LearnerProfile): SaveResult {
  * localStorage-backed store with the T0.1 failure-safety rules:
  * - load() backs up a damaged/unreadable V2 blob to a quarantine key right away;
  * - no write overwrites the V2 key while a damaged blob there has no backup;
+ * - a newer-version blob (version > 2) makes the store read-only: every save()/clear()
+ *   returns `failed: newer-version` and the blob stays byte-identical;
+ * - evidence is never rebuilt here and `evidenceStale` / evidence caches are never changed,
+ *   neither on raw-log salvage nor on quota-driven raw-log eviction;
  * - save()/clear() never throw; failures are returned, reported to `onSaveResult`
  *   and kept in `lastSaveError()`.
  */
@@ -372,24 +440,36 @@ export function createLocalStorageStore(
   let lastLoad: ProfileLoadResult | null = null
   /** The V2 key is known to hold our own write or a backed-up / valid blob. */
   let guarded = false
+  /** The V2 key holds a newer build's blob: every write is refused for this store's life. */
+  let readOnly = false
 
-  /** Back up whatever unreadable/damaged blob sits at the V2 key. False if that failed. */
-  function guardBeforeOverwrite(s: Storage): boolean {
-    if (guarded) return true
+  /**
+   * Back up whatever unreadable/damaged blob sits at the V2 key before overwriting it.
+   * Returns the failure reason, or null when the write may proceed.
+   */
+  function guardBeforeOverwrite(s: Storage): 'backup-required' | 'newer-version' | null {
+    if (readOnly) return 'newer-version'
+    if (guarded) return null
     const current = safeGet(s, PROFILE_STORAGE_KEY)
-    if (current && parseStoredProfile(current).kind !== 'ok') {
-      if (!backupRejectedBlob(s, current, now())) return false
+    if (current) {
+      const kind = parseStoredProfile(current).kind
+      if (kind === 'newer-version') {
+        readOnly = true
+        return 'newer-version'
+      }
+      if (kind !== 'ok' && !backupRejectedBlob(s, current, now())) return 'backup-required'
     }
     guarded = true
-    return true
+    return null
   }
 
   function write(profile: LearnerProfile): SaveResult {
     let result: SaveResult
+    const refused = storage ? guardBeforeOverwrite(storage) : null
     if (!storage) {
       result = { status: 'saved' }
-    } else if (!guardBeforeOverwrite(storage)) {
-      result = { status: 'failed', reason: 'backup-required' }
+    } else if (refused) {
+      result = { status: 'failed', reason: refused }
     } else {
       result = writeProfile(storage, profile)
     }
@@ -407,7 +487,10 @@ export function createLocalStorageStore(
       try {
         const result = loadProfileFromStorage(storage, now())
         lastLoad = result
-        if (storage) {
+        if (result.readOnly) {
+          // Newer build's save: never backed up, migrated or overwritten.
+          readOnly = true
+        } else if (storage) {
           guarded = result.quarantine
             ? backupRejectedBlob(storage, result.quarantine.blob, now())
             : true

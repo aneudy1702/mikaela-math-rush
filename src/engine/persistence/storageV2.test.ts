@@ -95,7 +95,7 @@ describe('profile v2 storage', () => {
   it.each([
     ['not JSON', '{oops'],
     ['JSON null', 'null'],
-    ['wrong version', JSON.stringify({ version: 3, learnerName: 'x', facts: {} })],
+    ['old version in the v2 key', JSON.stringify({ version: 1, learnerName: 'x', facts: {} })],
     ['no progress/player (facts alone do not validate)', JSON.stringify({ version: 2, learnerName: 'x', facts: {} })],
     [
       'no progress/player, corrupt raw log',

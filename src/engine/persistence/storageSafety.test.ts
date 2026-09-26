@@ -242,7 +242,8 @@ describe('damaged raw log is quarantined, not a rollback', () => {
 describe('wholly unreadable v2 blob', () => {
   it.each([
     ['not JSON', '{"version":2,"learnerName":"Mik'],
-    ['wrong version', JSON.stringify({ version: 7, learnerName: 'x', progress: {}, player: {} })],
+    ['old/unknown version (0)', JSON.stringify({ version: 0, learnerName: 'x', progress: {}, player: {} })],
+    ['non-numeric version', JSON.stringify({ version: '3', learnerName: 'x', progress: {}, player: {} })],
     ['no progress', JSON.stringify({ version: 2, learnerName: 'x', player: {} })],
   ])('%s: backed up before any overwrite; v1 migrated only after', (_l, blob) => {
     const { storage, v1Json } = withV1(new QuotaStorage())
@@ -308,6 +309,173 @@ describe('wholly unreadable v2 blob', () => {
     const backups = listQuarantineBackups(storage)
     expect(backups).toHaveLength(2)
     expect(backups.map((k) => storage.getItem(k))).toEqual(['{b', '{c'])
+  })
+
+  it('a backup that exceeds the real byte budget blocks the overwrite (no throw)', () => {
+    const blob = `{broken ${'x'.repeat(2000)}`
+    const storage = new QuotaStorage()
+    withV1(storage)
+    storage.setItem(PROFILE_STORAGE_KEY, blob)
+    // Room for a small profile write, but not for a second copy of the blob.
+    storage.limit = storage.used() + 1000
+    const store = createLocalStorageStore(storage, { now: () => T })
+    const profile = store.load()
+    expect(listQuarantineBackups(storage)).toEqual([])
+    expect(store.save(profile)).toEqual({ status: 'failed', reason: 'backup-required' })
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blob)
+  })
+})
+
+describe('newer-version blob (written by a newer build)', () => {
+  const newer = JSON.stringify({
+    version: 3,
+    learnerName: 'Mikaela',
+    progress: { anything: 'future' },
+    player: { xp: 99_999 },
+    futureField: [1, 2, 3],
+  })
+
+  it('loads read-only, never migrates v1, and stays byte-identical across saves', () => {
+    const { storage, v1Json } = withV1(new QuotaStorage())
+    storage.setItem(PROFILE_STORAGE_KEY, newer)
+    storage.writes = []
+    const results: SaveResult[] = []
+    const store = createLocalStorageStore(storage, { now: () => T, onSaveResult: (r) => results.push(r) })
+
+    const profile = store.load()
+    const outcome = store.lastLoad()!
+    expect(outcome.readOnly).toBe(true)
+    expect(outcome.quarantine?.kind).toBe('newer-version')
+    expect(outcome.source).toBe('fresh')
+    expect(profile.migration).toBeUndefined()
+    expect(profile.player.xp).toBe(0)
+
+    profile.player.xp = 50
+    for (let i = 0; i < 3; i++) {
+      expect(store.save(profile)).toEqual({ status: 'failed', reason: 'newer-version' })
+    }
+    expect(store.clear()).toEqual({ status: 'failed', reason: 'newer-version' })
+    expect(store.lastSaveError()).toEqual({ status: 'failed', reason: 'newer-version' })
+    expect(results).toHaveLength(4)
+
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(newer)
+    expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
+    expect(storage.writes).toEqual([])
+    expect(listQuarantineBackups(storage)).toEqual([])
+  })
+
+  it('save without a prior load also refuses to overwrite it', () => {
+    const storage = new FakeStorage()
+    storage.setItem(PROFILE_STORAGE_KEY, newer)
+    const store = createLocalStorageStore(storage)
+    expect(store.save(liveProfile(1, 1))).toEqual({ status: 'failed', reason: 'newer-version' })
+    expect(store.save(liveProfile(1, 1))).toEqual({ status: 'failed', reason: 'newer-version' })
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(newer)
+  })
+
+  it('parseStoredProfile classifies only numeric versions > 2 as newer', () => {
+    expect(parseStoredProfile(newer).kind).toBe('newer-version')
+    expect(parseStoredProfile(JSON.stringify({ version: 2.5 })).kind).toBe('newer-version')
+    expect(parseStoredProfile(JSON.stringify({ version: 1 })).kind).toBe('unreadable')
+    expect(parseStoredProfile(JSON.stringify({ version: '9' })).kind).toBe('unreadable')
+  })
+})
+
+describe('evidence caches survive raw-log loss (never rebuilt by persistence)', () => {
+  function withEvidence(stale: boolean): LearnerProfile {
+    const p = liveProfile(6, 20)
+    p.progress.factEvidence = {
+      '3x4': { status: 'fluent', counted: 17, marks: ['a', 'b'] },
+      '6x7': { status: 'learning', counted: 4 },
+    } as unknown as LearnerProfile['progress']['factEvidence']
+    p.progress.evidence = {
+      L2: [{ factId: '3x4', correct: true }, { factId: '6x7', correct: false }],
+    } as unknown as LearnerProfile['progress']['evidence']
+    p.progress.finishedSessionsByLevel = { L1: 3, L2: 6 }
+    p.progress.evidenceStale = stale
+    return p
+  }
+  const caches = (p: LearnerProfile) =>
+    JSON.stringify([
+      p.progress.factEvidence,
+      p.progress.evidence,
+      p.progress.finishedSessionsByLevel,
+      p.progress.evidenceStale,
+    ])
+
+  it('damaged blob → load → save → load keeps evidence, buffers and session counts byte-for-byte', () => {
+    const profile = withEvidence(false)
+    const blob = damagedBlob(profile, (enc) => {
+      enc.a[5]![6] = null // unreadable delta: most of the raw log is lost
+    })
+    const storage = new FakeStorage()
+    storage.setItem(PROFILE_STORAGE_KEY, blob)
+    const store = createLocalStorageStore(storage, { now: () => T })
+
+    const first = store.load()
+    expect(first.rawLog.attempts).toHaveLength(5)
+    expect(store.lastLoad()!.quarantine?.evidenceStaleWithDamagedLog).toBeUndefined()
+    expect(caches(first)).toBe(caches(profile))
+    expect(store.save(first).status).toBe('saved')
+
+    const second = createLocalStorageStore(storage).load()
+    expect(caches(second)).toBe(caches(profile))
+    expect(second.progress.evidenceStale).toBe(false)
+  })
+
+  it('stale evidence + damaged log: flag and caches kept as-is, combination exposed', () => {
+    const profile = withEvidence(true)
+    const blob = damagedBlob(profile, (enc) => {
+      enc.a[3]![11] = 42
+    })
+    const storage = new FakeStorage()
+    storage.setItem(PROFILE_STORAGE_KEY, blob)
+    const store = createLocalStorageStore(storage, { now: () => T })
+    const loaded = store.load()
+    expect(store.lastLoad()!.quarantine).toMatchObject({
+      kind: 'raw-log-damaged',
+      evidenceStaleWithDamagedLog: true,
+    })
+    expect(caches(loaded)).toBe(caches(profile))
+    store.save(loaded)
+    expect(caches(createLocalStorageStore(storage).load())).toBe(caches(profile))
+  })
+
+  it('quota-driven eviction and hard trim never touch evidence or evidenceStale', () => {
+    for (const stale of [false, true]) {
+      const profile = withEvidence(stale)
+      const storage = new QuotaStorage()
+      const emptyLog = serializeProfile({ ...profile, rawLog: { attempts: [], sessions: [] } })
+      storage.limit = PROFILE_STORAGE_KEY.length + emptyLog.length + 2000
+      expect(createLocalStorageStore(storage).save(profile).status).toBe('saved-trimmed')
+      const loaded = createLocalStorageStore(storage).load()
+      expect(loaded.rawLog.attempts.length).toBeLessThan(profile.rawLog.attempts.length)
+      expect(caches(loaded)).toBe(caches(profile))
+    }
+  })
+
+  it('damaged raw log + failing backup (byte budget): nothing overwritten, progress survives in memory', () => {
+    const profile = withEvidence(false)
+    const blob = damagedBlob(profile, (enc) => {
+      enc.s[1]![1] = 'bad-kind'
+    })
+    const storage = new QuotaStorage()
+    storage.setItem(PROFILE_STORAGE_KEY, blob)
+    storage.limit = storage.used() + 500 // a second copy of the blob does not fit
+    const store = createLocalStorageStore(storage, { now: () => T })
+
+    const loaded = store.load()
+    expect(store.lastLoad()!.quarantine?.kind).toBe('raw-log-damaged')
+    expect(listQuarantineBackups(storage)).toEqual([])
+    expect(progressOf(loaded)).toEqual(progressOf(profile))
+    expect(caches(loaded)).toBe(caches(profile))
+
+    loaded.player.xp += 10
+    expect(store.save(loaded)).toEqual({ status: 'failed', reason: 'backup-required' })
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blob)
+    // The in-memory profile is untouched by the refused save.
+    expect(loaded.player.xp).toBe(profile.player.xp + 10)
+    expect(caches(loaded)).toBe(caches(profile))
   })
 })
 
