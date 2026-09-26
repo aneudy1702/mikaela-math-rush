@@ -1,6 +1,6 @@
 # Math Rush V2 — Learning Journey: Plan of Attack
 
-Status: REVISION 3 — T-SIM next; thresholds frozen after simulator results + owner sign-off
+Status: REVISION 4 — APPROVED. T-SIM done; T0 + T-SIM2 in progress.
 Decisions live in [DECISIONS.md](DECISIONS.md). This file is the ticket graph and the operating loop.
 
 ## Mental model (three systems)
@@ -62,7 +62,8 @@ Learning never generates questions (existing rule).
 
 | Wave | Tickets | Parallel | Gate |
 |---|---|---|---|
-| −1 | T-SIM | single | Verifier confirms sim implements DECISIONS §B faithfully; owner signs off final RULES values |
+| −1 | T-SIM | done | Checker: trustworthy with caveats; owner signed off revision 4 |
+| 0 | T-SIM2 (parallel with T0) | single | Sim updated to rev-4 rules, D12 invariants pass, experience-stuck with marks reported |
 | 0 | T0 | single | Owner approves frozen contracts; verifier passes |
 | 1 | T1, T2, T3, T4 | **4 in parallel** (disjoint new modules) | Each verified; merged to `v2/integration` in order T1, T4, T2, T3 |
 | 2 | T5, T6 | 2 in parallel | Verified + merged |
@@ -95,6 +96,15 @@ Learning never generates questions (existing rule).
   error, XP/min on progress level vs replay.
 - Later reused as T4/T7 regression tests.
 
+### T-SIM2 — Simulator to revision 4  *(parallel with T0; tools/sim only)*
+- Owns: `tools/sim/**`, `docs/v2/SIM-REPORT.md`.
+- Make rev-4 the default rule set: provisional/confirm removed, V1, V4, option B @ 0.85, two-stage budget-neutral pick.
+  Keep earlier variants only where cheap; don't widen scope.
+- Implement D12 exactly (paired seeds, |Δmean| ≤ 0.25, p90, stuck, KS) and exit non-zero on failure.
+- Add D10 evidence marks; report experience-stuck (3+ and 5+ session droughts, median longest drought) with and without
+  mark advancement counted, per learner × pattern, static and learning learners.
+- Report headline rev-4 numbers (median/p90 per level, academic stuck) so T4/T7 have a reference.
+
 ### T0 — Contracts freeze, canonical ID, Profile v2, migration  *(blocks everything)*
 - Owns: `src/engine/contracts/**`, `src/engine/persistence/**`, `src/engine/index.ts`, new stubs
   `src/engine/{curriculum,records,progression}/index.ts`, `src/engine/learning/{index.ts,advancement.ts}` (stub),
@@ -103,8 +113,9 @@ Learning never generates questions (existing rule).
   `LevelDef { id, index, kind: 'table'|'mixed'|'speed', title, tables, tableFactIds, ownedFactIds, gatingFactIds, introFactIds }`,
   `SkillCurriculum`, `SkillProgress { currentLevelId, unlockedLevelIds, completedLevelIds, placementStartLevelId? }`,
   `RecordKey`, `PersonalRecord { baselineMs, bestMs, ... }`, `SessionLogEntry`, `PlayerProgress`, `BadgeDef`,
-  `BadgeAward`, `FactStatus = 'new'|'learning'|'mastered'|'struggling'`, `AdvancementResult`, `FactAttempt { sessionId, sessionInferred, levelId, source }`, `FactRecord { everMastered,
-  placementLikely, attempts log (last 12) }`, `SkillProgress.levelAnswers`, typed progression events
+  `BadgeAward`, `FactStatus = 'new'|'learning'|'mastered'|'struggling'`, `AdvancementResult`, raw log types per DECISIONS D11 (`RawAttempt`, `SessionRecord`) kept separate from the
+  derived evidence view (`FactEvidence { everMastered, placementLikely, … }`, `SkillProgress.evidence[levelId]`),
+  `source` without `confirm`, no provisional status, typed progression events
   (`FactMastered`, `LevelCompleted`, `RecordBeaten`, …) so T3 and T4 run in parallel,
   `SessionResultSummaryV2` (new type; old summary untouched), `MathSkill.conceptIdFor?`.
 - D9 canonical ID frozen + tests (100 ordered pairs → 55 IDs; 8×7 updates `7x8`).
@@ -136,12 +147,13 @@ Learning never generates questions (existing rule).
 - Accept: replay multiplier applied; one-time bonuses never repeat; placement-skipped levels grant nothing;
   farming comparison from D6 encoded as a test.
 
-### T4 — Fact status + level completion  (D2)
+### T4 — Fact status + level completion + evidence marks  (D2, D10)
 - Owns: `src/engine/learning/advancement.ts`, `src/engine/learning/mastery.ts` (additive: keep existing exports), tests.
-- Pure: `factStatus(record)`, `selectionPriority(record)`, `evaluateTableLevel(level, facts, levelHistory)`,
-  `evaluateMixedLevel(sessionLog)`.
-- Accept: 100% accurate at 8 s → mastered; C M C C → mastered; single typo never → struggling; 1 session → never
-  mastered; completion allowance table from D2 tested per level; latency never changes status.
+- Pure: `countedAttempts(rawLog)`, `factStatus(evidence)`, `factMarks(evidence)`, `evaluateTableLevel(...)`,
+  `evaluateMixedLevel(evidenceBuffer)`; derived from the raw log per D11. Port the sim's test scenarios.
+- Accept: 100% accurate at 8 s → mastered; C M C C → mastered; single typo never → struggling; correct answers in one
+  session only → never mastered; V1 case (earlier correct session + 4 clean answers) → mastered; R1 table per level;
+  latency never changes status (D12 exact invariant as a unit test); marks go down when misses enter the window.
 
 ### T5 — Level-scoped selection  (D2, P1, P2, P8)
 - Depends T1, T4. Owns: `src/engine/learning/selection.ts` (selection functions), `src/engine/orchestrator/**`, tests.
@@ -166,7 +178,8 @@ Learning never generates questions (existing rule).
 ### T8 — App wiring + screens  (absorbs former U0)
 - Depends T7, T6. Owns: `src/App.tsx`, `src/screens/**`, `src/components/**`, `src/index.css`.
 - Home: level ladder with current level + in-level fact progress, player level + XP bar, records for current level.
-  Play: fact progress on incomplete levels; pace line/best only on completed levels. Results: level-up moment, XP breakdown,
+  Play: fact progress on incomplete levels; pace line/best only on completed levels. Evidence marks per fact (D10).
+  Miss flow: reveal card, tap card / "Got it" (no "Next"). Results: level-up moment, XP breakdown,
   badges earned, facts mastered this session. Placement: warm-up staircase; parent unlock (long-press).
   Existing-profile start-level prompt (D5). Removes deprecated v1 fields/exports. Badges screen DEFERRED.
 - Accept: owner reviews screenshots, desktop + 375 px.
