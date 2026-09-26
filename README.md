@@ -31,8 +31,9 @@ Game Shell → Session Engine → Question Orchestrator ⇄ Learning Engine + Co
 
 Framework-independent engine code lives under `src/engine/`. V1 content plugin: multiplication facts.
 
-## Play (V1 slice)
+## Play (V1)
 
-- **Quick Play (10)** and **Practice (25)** from Home
+- First launch: **placement** seeds fact-level mastery across bands
+- **Quick 10 / Practice 25 / Rush 100**
 - Numeric keypad, soft miss reveal, streak milestones
 - Mastery + profile persist in `localStorage`

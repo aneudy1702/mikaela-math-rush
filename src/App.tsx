@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LearnerProfile, SessionMode } from './engine'
+import type { LearnerProfile, PlacementItem, SessionMode } from './engine'
 import {
   SessionEngine,
+  buildPlacementSequence,
   createLocalStorageStore,
   createMultiplicationSkill,
 } from './engine'
 import { HomeScreen } from './screens/HomeScreen'
+import { PlacementScreen } from './screens/PlacementScreen'
 import { PlayScreen } from './screens/PlayScreen'
 import { ResultsScreen } from './screens/ResultsScreen'
 
-type Screen = 'home' | 'play' | 'results'
+type Screen = 'home' | 'placement' | 'play' | 'results'
 
 const store = createLocalStorageStore()
 const skill = createMultiplicationSkill()
@@ -27,6 +29,7 @@ export function App() {
   const [profile, setProfile] = useState<LearnerProfile>(() => store.load())
   const [muted, setMuted] = useState(false)
   const [clock, setClock] = useState(0)
+  const [placementItems, setPlacementItems] = useState<PlacementItem[]>([])
   const engineRef = useRef<SessionEngine | null>(null)
 
   useEffect(() => {
@@ -34,6 +37,16 @@ export function App() {
     const id = window.setInterval(() => setClock((c) => c + 1), 200)
     return () => window.clearInterval(id)
   }, [screen])
+
+  function persist(next: LearnerProfile) {
+    setProfile(next)
+    store.save(next)
+  }
+
+  function startPlacement() {
+    setPlacementItems(buildPlacementSequence(16))
+    setScreen('placement')
+  }
 
   function startSession(mode: SessionMode) {
     const fresh = store.load()
@@ -49,9 +62,7 @@ export function App() {
     const engine = engineRef.current
     if (!engine) return
     const snap = engine.submit(value, Date.now())
-    const nextProfile = engine.getProfile()
-    setProfile(nextProfile)
-    store.save(nextProfile)
+    persist(engine.getProfile())
     if (snap.finished) {
       setScreen('results')
     } else {
@@ -62,6 +73,22 @@ export function App() {
   function goHome() {
     engineRef.current = null
     setScreen('home')
+  }
+
+  if (screen === 'placement' && placementItems.length > 0) {
+    return (
+      <div className="app-shell">
+        <PlacementScreen
+          items={placementItems}
+          profile={profile}
+          onUpdateProfile={persist}
+          onDone={(done) => {
+            persist(done)
+            setScreen('home')
+          }}
+        />
+      </div>
+    )
   }
 
   if (screen === 'play' && engineRef.current) {
@@ -100,9 +127,12 @@ export function App() {
       <HomeScreen
         bestQuick={formatBest(profile.bestTimeMsByMode.quick)}
         muted={muted}
+        needsPlacement={!profile.placementComplete}
         onToggleMute={() => setMuted((m) => !m)}
         onQuick={() => startSession('quick')}
         onPractice={() => startSession('practice')}
+        onRush={() => startSession('rush')}
+        onPlacement={startPlacement}
       />
     </div>
   )

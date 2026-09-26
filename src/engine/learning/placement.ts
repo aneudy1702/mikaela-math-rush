@@ -43,19 +43,20 @@ export function buildPlacementSequence(
     })
   }
 
-  // Fill remaining from any unused facts if needed.
-  while (picks.length < count) {
-    const fact = CORE_FACTS[Math.floor(rng() * CORE_FACTS.length)]!
-    if (picks.some((p) => p.factId === fact.factId)) {
-      if (picks.length >= CORE_FACTS.length) break
-      continue
+  // Fill remaining from unused facts (deterministic scan — safe with fixed RNGs in tests).
+  if (picks.length < count) {
+    const taken = new Set(picks.map((p) => p.factId))
+    for (const fact of CORE_FACTS) {
+      if (picks.length >= count) break
+      if (taken.has(fact.factId)) continue
+      taken.add(fact.factId)
+      picks.push({
+        factId: fact.factId,
+        a: fact.a,
+        b: fact.b,
+        product: fact.product,
+      })
     }
-    picks.push({
-      factId: fact.factId,
-      a: fact.a,
-      b: fact.b,
-      product: fact.product,
-    })
   }
 
   return picks

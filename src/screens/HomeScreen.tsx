@@ -3,17 +3,23 @@ import { motion } from 'framer-motion'
 interface HomeScreenProps {
   bestQuick: string
   muted: boolean
+  needsPlacement: boolean
   onToggleMute: () => void
   onQuick: () => void
   onPractice: () => void
+  onRush: () => void
+  onPlacement: () => void
 }
 
 export function HomeScreen({
   bestQuick,
   muted,
+  needsPlacement,
   onToggleMute,
   onQuick,
   onPractice,
+  onRush,
+  onPlacement,
 }: HomeScreenProps) {
   return (
     <section className="home">
@@ -29,25 +35,48 @@ export function HomeScreen({
           <span>Math Rush</span>
         </h1>
         <p className="home-lead">
-          Beat the clock. Soft misses come back later. Streaks earn the fireworks.
+          {needsPlacement
+            ? 'First run: a short placement maps your facts, then you race.'
+            : 'Beat the clock. Soft misses come back later. Streaks earn the fireworks.'}
         </p>
         <div className="home-cta">
-          <motion.button
-            type="button"
-            className="btn-primary"
-            onClick={onQuick}
-            whileTap={{ scale: 0.97 }}
-          >
-            Quick Play · 10
-          </motion.button>
-          <motion.button
-            type="button"
-            className="btn-secondary"
-            onClick={onPractice}
-            whileTap={{ scale: 0.97 }}
-          >
-            Practice · 25
-          </motion.button>
+          {needsPlacement ? (
+            <motion.button
+              type="button"
+              className="btn-primary"
+              onClick={onPlacement}
+              whileTap={{ scale: 0.97 }}
+            >
+              Start placement
+            </motion.button>
+          ) : (
+            <>
+              <motion.button
+                type="button"
+                className="btn-primary"
+                onClick={onQuick}
+                whileTap={{ scale: 0.97 }}
+              >
+                Quick Play · 10
+              </motion.button>
+              <motion.button
+                type="button"
+                className="btn-secondary"
+                onClick={onPractice}
+                whileTap={{ scale: 0.97 }}
+              >
+                Practice · 25
+              </motion.button>
+              <motion.button
+                type="button"
+                className="btn-secondary"
+                onClick={onRush}
+                whileTap={{ scale: 0.97 }}
+              >
+                Rush · 100
+              </motion.button>
+            </>
+          )}
         </div>
         <div className="home-meta">
           <span>
