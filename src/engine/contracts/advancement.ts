@@ -104,7 +104,7 @@ export interface StartLevelInference {
   recommendedLevelId: LevelId | null
   /** L1–L8 in order (walk may stop early). */
   verdicts: LevelInferenceVerdict[]
-  /** Raw attempts inside the inferenceMaxAgeDays window that were considered. */
+  /** Raw attempts inside the inferenceMaxAgeDays window ending at migration (migratedAtMs; D5b) that were considered. */
   attemptsConsidered: number
   /** Facts whose recomputed status is mastered (everMastered set silently on apply). */
   masteredFactIds: string[]
