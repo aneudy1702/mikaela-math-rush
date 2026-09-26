@@ -1,5 +1,5 @@
 /* Minimal offline shell for Add to Home Screen. */
-const CACHE = 'mikaela-math-rush-v3'
+const CACHE = 'mikaela-math-rush-v4'
 const PRECACHE = [
   '/',
   '/manifest.webmanifest',

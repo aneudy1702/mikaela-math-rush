@@ -1,12 +1,18 @@
 import type {
   FactRecord,
   LearnerProfile,
+  PlayerProgress,
   SelectionBucket,
   SelectionStrategy,
   SessionMode,
+  SkillProgress,
 } from '../contracts'
-import { DEFAULT_SELECTION_STRATEGY } from '../contracts'
-import { CORE_FACTS, STRETCH_FACTS } from '../content/multiplication'
+import { DEFAULT_SELECTION_STRATEGY, FIRST_LEVEL_ID } from '../contracts'
+import {
+  CORE_FACTS,
+  MULTIPLICATION_SKILL_ID,
+  STRETCH_FACTS,
+} from '../content/multiplication'
 import {
   MASTERY_CONFIG,
   emptyFactRecord,
@@ -23,18 +29,51 @@ export function createEmptyProfile(
     facts[f.factId] = emptyFactRecord(f.factId)
   }
   return {
-    version: 1,
+    version: 2,
     learnerName,
     createdAtMs: nowMs,
     updatedAtMs: nowMs,
     placementComplete: false,
+    dailyStreak: 0,
+    lastPlayDayKey: null,
+    pendingReinforcements: [],
+    progress: createEmptySkillProgress(),
+    rawLog: { attempts: [], sessions: [] },
+    records: {},
+    sessionLog: [],
+    player: createEmptyPlayerProgress(),
+    // Deprecated V1 compat fields (removed in T8).
     facts,
     bestTimeMsByMode: {},
     bestStreakByMode: {},
-    dailyStreak: 0,
-    lastPlayDayKey: null,
     gameXp: 0,
-    pendingReinforcements: [],
+  }
+}
+
+/** Fresh curriculum position: L1 current and unlocked, no evidence. */
+export function createEmptySkillProgress(
+  skillId: string = MULTIPLICATION_SKILL_ID,
+): SkillProgress {
+  return {
+    skillId,
+    currentLevelId: FIRST_LEVEL_ID,
+    unlockedLevelIds: [FIRST_LEVEL_ID],
+    completedLevelIds: [],
+    factEvidence: {},
+    evidence: {},
+    finishedSessionsByLevel: {},
+    evidenceStale: false,
+  }
+}
+
+export function createEmptyPlayerProgress(): PlayerProgress {
+  return {
+    xp: 0,
+    level: 1,
+    badges: [],
+    finishedLevelModes: [],
+    recordsBeaten: 0,
+    lastRecordXpDayKey: null,
   }
 }
 

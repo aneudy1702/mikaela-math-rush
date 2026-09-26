@@ -47,6 +47,11 @@ export interface MathSkill {
   domain: string
   generateQuestion(request: QuestionRequest): Question
   evaluateAnswer(question: Question, answer: Answer): Result
+  /**
+   * D9 generic hook: the canonical concept (fact) ID a question exercises, e.g.
+   * 8 × 7 → "7x8" for multiplication. Normalization is skill-specific.
+   */
+  conceptIdFor?(question: Question): string
 }
 
 export type SessionMode = 'quick' | 'practice' | 'rush'
@@ -105,25 +110,6 @@ export interface PendingReinforcement {
   kind: 'reintroduce' | 'later-check'
   /** Questions until due when the next session starts (relative). */
   dueInQuestions: number
-}
-
-export interface LearnerProfile {
-  version: 1
-  learnerName: string
-  createdAtMs: number
-  updatedAtMs: number
-  placementComplete: boolean
-  facts: Record<string, FactRecord>
-  bestTimeMsByMode: Partial<Record<SessionMode, number>>
-  bestStreakByMode: Partial<Record<SessionMode, number>>
-  /** Consecutive calendar days with at least one finished session. */
-  dailyStreak: number
-  /** Local calendar day key (YYYY-MM-DD) of last finished session. */
-  lastPlayDayKey: string | null
-  /** Game XP — never write into academic mastery fields. */
-  gameXp: number
-  /** Pending spaced practice surviving session boundaries. */
-  pendingReinforcements: PendingReinforcement[]
 }
 
 export interface SessionConfig {

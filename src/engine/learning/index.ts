@@ -17,7 +17,9 @@ export {
   awardGameXp,
   bucketFacts,
   classifyFact,
+  createEmptyPlayerProgress,
   createEmptyProfile,
+  createEmptySkillProgress,
   ensureFact,
   recordBest,
   touchDailyStreak,
@@ -27,8 +29,34 @@ export {
 } from './selection'
 
 export {
+  applyPlacementResult,
+  applyStartLevelInference,
   buildPlacementSequence,
   completePlacement,
+  inferStartLevel,
+  nextProbe,
+  placementResult,
+  recordProbe,
   seedPlacementAttempt,
+  startPlacement,
   type PlacementItem,
+  type PlacementState,
 } from './placement'
+
+export {
+  applyAttemptToEvidence,
+  countedAttempts,
+  countedFlags,
+  detectComebacks,
+  emptyFactEvidence,
+  evaluateAdvancement,
+  evaluateMixedLevel,
+  evaluateTableLevel,
+  factMarks,
+  factStatus,
+  isLikelyCorrect,
+  levelAllowance,
+  levelMarksTotal,
+  rebuildEvidence,
+  type AdvancementInput,
+} from './advancement'
