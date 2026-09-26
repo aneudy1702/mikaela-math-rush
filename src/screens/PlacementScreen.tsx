@@ -146,9 +146,6 @@ export function PlacementScreen({
 
         <p className="placement-lead">Let&apos;s see how fast you are!</p>
         <p className="placement-bubble">
-          <span className="bubble-icon" aria-hidden>
-            💡
-          </span>
           This quick run helps us learn <strong>your strengths</strong> so we
           can give you the perfect challenges!
         </p>
