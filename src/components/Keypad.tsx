@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import { useEffect, type MouseEvent } from 'react'
 import { playSfx, unlockAudio } from '../audio/engine'
 
 interface KeypadProps {
@@ -22,6 +22,33 @@ function tapIfKeyboard(e: MouseEvent<HTMLButtonElement>) {
 }
 
 export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (disabled || event.metaKey || event.ctrlKey || event.altKey) return
+
+      // Focused keypad buttons already have native keyboard activation. Skipping them
+      // prevents Enter/Space from submitting twice.
+      if (event.target instanceof HTMLButtonElement) return
+
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault()
+        tap()
+        onDigit(event.key)
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault()
+        tap()
+        onBackspace()
+      } else if (event.key === 'Enter') {
+        event.preventDefault()
+        tap()
+        onEnter()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [disabled, onBackspace, onDigit, onEnter])
+
   return (
     <div className="keypad" role="group" aria-label="Number keypad">
       {KEYS.map((key) => {

@@ -1,140 +1,327 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { gameAssets } from '../assets'
-import type { LearnerProfile, PlacementItem } from '../engine'
-import {
-  completePlacement,
-  generateForFact,
-  seedPlacementAttempt,
-} from '../engine'
 import { Keypad } from '../components/Keypad'
+import {
+  applyAttemptToEvidence,
+  applyPlacementResult,
+  emptyFactEvidence,
+  generateForFact,
+  getLevel,
+  nextProbe,
+  placementRawAttempt,
+  placementResult,
+  recordProbe,
+  startPlacement,
+  type LearnerProfile,
+  type PlacementProbe,
+  type PlacementResult,
+  type PlacementState,
+  type Question,
+  type SessionRecord,
+} from '../engine'
 
 interface PlacementScreenProps {
-  items: PlacementItem[]
   profile: LearnerProfile
-  onUpdateProfile: (profile: LearnerProfile) => void
+  persistenceWarning?: string | null
+  onCheckpoint: (profile: LearnerProfile) => void
   onDone: (profile: LearnerProfile) => void
-  onBack?: () => void
-  muted?: boolean
-  onToggleMute?: () => void
+  onBack: () => void
+  muted: boolean
+  onToggleMute: () => void
+}
+
+interface PlacementRound {
+  probe: PlacementProbe
+  question: Question
+  shownAtMs: number
+}
+
+interface PendingAdvance {
+  state: PlacementState
+  profile: LearnerProfile
+}
+
+interface PlacementCompletion {
+  profile: LearnerProfile
+  result: PlacementResult
+}
+
+function newSessionId(nowMs: number): string {
+  return `placement-${nowMs.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`
+}
+
+function roundFor(probe: PlacementProbe): PlacementRound {
+  return {
+    probe,
+    question: generateForFact(probe.factId),
+    shownAtMs: Date.now(),
+  }
+}
+
+function closePlacementSession(
+  profile: LearnerProfile,
+  sessionId: string,
+  endReason: 'finished' | 'abandoned',
+  endedAtMs: number,
+): LearnerProfile {
+  return {
+    ...profile,
+    updatedAtMs: Math.max(profile.updatedAtMs, endedAtMs),
+    rawLog: {
+      ...profile.rawLog,
+      sessions: profile.rawLog.sessions.map((session) =>
+        session.id === sessionId
+          ? { ...session, endedAtMs, endReason }
+          : session,
+      ),
+    },
+  }
 }
 
 export function PlacementScreen({
-  items,
   profile,
-  onUpdateProfile,
+  persistenceWarning,
+  onCheckpoint,
   onDone,
   onBack,
   muted,
   onToggleMute,
 }: PlacementScreenProps) {
-  const [index, setIndex] = useState(0)
+  const [placement, setPlacement] = useState<PlacementState | null>(null)
+  const [round, setRound] = useState<PlacementRound | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [workingProfile, setWorkingProfile] = useState<LearnerProfile>(profile)
   const [draft, setDraft] = useState('')
   const [locked, setLocked] = useState(false)
-  const [startedAt, setStartedAt] = useState(() => Date.now())
-  const [sessionStartedAt, setSessionStartedAt] = useState(() => Date.now())
-  const [hint, setHint] = useState<string | null>(null)
-  const [elapsed, setElapsed] = useState(0)
-  const [intro, setIntro] = useState(true)
-  const [streak, setStreak] = useState(0)
+  const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
+  const [pendingAdvance, setPendingAdvance] = useState<PendingAdvance | null>(null)
+  const [completion, setCompletion] = useState<PlacementCompletion | null>(null)
+  const advanceTimer = useRef<number | null>(null)
 
-  const item = items[index]
-  const question = useMemo(
-    () => (item ? generateForFact(item.factId, () => 0.25, 0.5) : null),
-    [item],
+  useEffect(
+    () => () => {
+      if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current)
+    },
+    [],
   )
 
   useEffect(() => {
-    if (intro) return
-    const id = window.setInterval(() => {
-      setElapsed(Date.now() - sessionStartedAt)
-    }, 200)
-    return () => window.clearInterval(id)
-  }, [intro, sessionStartedAt])
-
-  useEffect(() => {
-    if (intro) return
-    setDraft('')
-    setLocked(false)
-    setHint(null)
-    setStartedAt(Date.now())
-  }, [index, intro])
-
-  if (!item || !question) {
-    return null
-  }
-
-  const expression =
-    question.prompt.type === 'expression' ? question.prompt.expression : '—'
+    if (!feedback || feedback.correct) return
+    function handleRevealKey(event: KeyboardEvent) {
+      if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return
+      event.preventDefault()
+      continueAfterAnswer()
+    }
+    window.addEventListener('keydown', handleRevealKey)
+    return () => window.removeEventListener('keydown', handleRevealKey)
+  })
 
   function begin() {
     const now = Date.now()
-    setIntro(false)
-    setSessionStartedAt(now)
-    setStartedAt(now)
+    const id = newSessionId(now)
+    const state = startPlacement()
+    const probe = nextProbe(state)
+    if (!probe) return
+    const session: SessionRecord = {
+      id,
+      kind: 'placement',
+      startedAtMs: now,
+      endedAtMs: null,
+      mode: null,
+      levelId: null,
+      inferred: false,
+      endReason: null,
+      isReplay: false,
+      pauses: [],
+      discardedOnHide: [],
+    }
+    const startedProfile: LearnerProfile = {
+      ...profile,
+      updatedAtMs: Math.max(profile.updatedAtMs, now),
+      rawLog: {
+        attempts: profile.rawLog.attempts.slice(),
+        sessions: [...profile.rawLog.sessions, session],
+      },
+    }
+    setSessionId(id)
+    setPlacement(state)
+    setWorkingProfile(startedProfile)
+    setRound(roundFor(probe))
+    onCheckpoint(startedProfile)
+  }
+
+  function finishPlacement(
+    state: PlacementState,
+    answeredProfile: LearnerProfile,
+  ) {
+    if (!sessionId) return
+    const result = placementResult(state)
+    if (!result) return
+    const now = Date.now()
+    const closed = closePlacementSession(answeredProfile, sessionId, 'finished', now)
+    const finalProfile = applyPlacementResult(closed, result, now)
+    setWorkingProfile(finalProfile)
+    setRound(null)
+    setFeedback(null)
+    setPendingAdvance(null)
+    setCompletion({ profile: finalProfile, result })
+    onCheckpoint(finalProfile)
+  }
+
+  function advance(state: PlacementState, answeredProfile: LearnerProfile) {
+    setDraft('')
+    setLocked(false)
+    setFeedback(null)
+    setPendingAdvance(null)
+    if (state.finished) {
+      finishPlacement(state, answeredProfile)
+      return
+    }
+    const probe = nextProbe(state)
+    if (!probe) return
+    setRound(roundFor(probe))
+  }
+
+  function continueAfterAnswer() {
+    if (!pendingAdvance) return
+    advance(pendingAdvance.state, pendingAdvance.profile)
   }
 
   function submit() {
-    if (intro || locked || draft === '' || !item || !question) return
-    const value = Number(draft)
-    if (!Number.isFinite(value)) return
+    if (!placement || !round || !sessionId || locked || draft === '') return
+    const given = Number(draft)
+    if (!Number.isFinite(given)) return
     setLocked(true)
-    const latencyMs = Math.max(0, Date.now() - startedAt)
-    const correct = value === item.product
-    if (!correct) {
-      setHint(`Almost! ${item.a}×${item.b}=${item.product}`)
-      setStreak(0)
-    } else {
-      setStreak((s) => s + 1)
-      setHint(null)
-    }
-    const next = seedPlacementAttempt(
-      profile,
-      item.factId,
-      correct,
-      latencyMs,
-    )
-    onUpdateProfile(next)
 
-    window.setTimeout(() => {
-      const nextIndex = index + 1
-      if (nextIndex >= items.length) {
-        const done = completePlacement(next)
-        onUpdateProfile(done)
-        onDone(done)
-      } else {
-        setIndex(nextIndex)
-      }
-    }, correct ? 180 : 700)
+    const atMs = Date.now()
+    const expected = Number(round.question.correctAnswer)
+    const correct = given === expected
+    const metadataA = round.question.metadata?.a
+    const metadataB = round.question.metadata?.b
+    const attempt = placementRawAttempt(
+      round.probe,
+      {
+        correct,
+        given,
+        latencyMs: Math.max(0, atMs - round.shownAtMs),
+        atMs,
+        a: typeof metadataA === 'number' ? metadataA : undefined,
+        b: typeof metadataB === 'number' ? metadataB : undefined,
+      },
+      sessionId,
+    )
+    const counted = !workingProfile.rawLog.attempts.some(
+      (candidate) =>
+        candidate.sessionId === sessionId &&
+        candidate.factId === attempt.factId &&
+        !candidate.correct,
+    )
+    const previousEvidence =
+      workingProfile.progress.factEvidence[attempt.factId] ??
+      emptyFactEvidence(attempt.factId)
+    const evidence = applyAttemptToEvidence(previousEvidence, attempt, counted)
+    const answeredProfile: LearnerProfile = {
+      ...workingProfile,
+      updatedAtMs: Math.max(workingProfile.updatedAtMs, atMs),
+      rawLog: {
+        ...workingProfile.rawLog,
+        attempts: [...workingProfile.rawLog.attempts, attempt],
+      },
+      progress: {
+        ...workingProfile.progress,
+        factEvidence: {
+          ...workingProfile.progress.factEvidence,
+          [attempt.factId]: evidence,
+        },
+      },
+    }
+    const nextState = recordProbe(placement, round.probe, correct)
+    const expression =
+      round.question.prompt.type === 'expression'
+        ? round.question.prompt.expression
+        : round.probe.factId.replace('x', ' × ')
+    const nextFeedback = correct
+      ? { correct: true, text: 'Nice!' }
+      : { correct: false, text: `${expression} = ${expected}` }
+
+    setPlacement(nextState)
+    setWorkingProfile(answeredProfile)
+    setFeedback(nextFeedback)
+    setPendingAdvance({ state: nextState, profile: answeredProfile })
+    onCheckpoint(answeredProfile)
+
+    if (correct) {
+      advanceTimer.current = window.setTimeout(() => {
+        advanceTimer.current = null
+        advance(nextState, answeredProfile)
+      }, 260)
+    }
   }
 
-  if (intro) {
+  function leave() {
+    if (sessionId && placement && !placement.finished) {
+      const abandoned = closePlacementSession(
+        workingProfile,
+        sessionId,
+        'abandoned',
+        Date.now(),
+      )
+      onCheckpoint(abandoned)
+    }
+    onBack()
+  }
+
+  if (completion) {
+    const level = getLevel(completion.result.startLevelId)
+    return (
+      <section className="placement-complete">
+        <motion.img
+          src={gameAssets.characters.victory}
+          alt=""
+          className="placement-complete-runner"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+        />
+        <span className="section-eyebrow">Warm-up complete</span>
+        <h1>Start at Level {level.index}</h1>
+        <p className="placement-result-title">{level.title}</p>
+        <p>
+          This is a good place to begin. You can still pick any lower unlocked level
+          from the ladder.
+        </p>
+        <button
+          type="button"
+          className="mode-btn mode-quick placement-finish"
+          onClick={() => onDone(completion.profile)}
+        >
+          <span className="mode-copy"><span className="mode-title">Go to my levels</span></span>
+        </button>
+      </section>
+    )
+  }
+
+  if (!placement || !round) {
     return (
       <section className="placement-intro">
         <div className="play-toolbar">
-          {onBack ? (
-            <button type="button" className="icon-btn" onClick={onBack} aria-label="Back">
-              ←
-            </button>
-          ) : (
-            <span className="icon-btn ghost" />
-          )}
-          <h1 className="placement-title">Placement Run</h1>
-          {onToggleMute ? (
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={onToggleMute}
-              aria-pressed={muted}
-              aria-label={muted ? 'Unmute' : 'Mute'}
-            >
-              {muted ? '×' : '♪'}
-            </button>
-          ) : (
-            <span className="icon-btn ghost" />
-          )}
+          <button type="button" className="icon-btn" onClick={onBack} aria-label="Back home">←</button>
+          <h1 className="placement-title">Warm-up run</h1>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onToggleMute}
+            aria-pressed={muted}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? '×' : '♪'}
+          </button>
         </div>
-
+        {persistenceWarning ? (
+          <div className="save-warning" role="status">
+            <strong>Progress is not being saved.</strong> {persistenceWarning}
+          </div>
+        ) : null}
         <motion.img
           src={gameAssets.characters.runner}
           alt=""
@@ -143,69 +330,59 @@ export function PlacementScreen({
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
         />
-
-        <p className="placement-lead">Let&apos;s see how fast you are!</p>
+        <p className="placement-lead">Let&apos;s find a comfortable starting level.</p>
         <p className="placement-bubble">
-          This quick run helps us learn <strong>your strengths</strong> so we
-          can give you the perfect challenges!
+          This optional warm-up feels just like play. There is no timer and no score—take
+          all the time you need.
         </p>
-
         <motion.button
           type="button"
           className="mode-btn mode-quick placement-start"
           onClick={begin}
           whileTap={{ scale: 0.98 }}
         >
-          <img
-            src={gameAssets.icons.lightning}
-            alt=""
-            className="mode-icon"
-            draggable={false}
-          />
+          <img src={gameAssets.icons.practiceTarget} alt="" className="mode-icon" draggable={false} />
           <span className="mode-copy">
-            <span className="mode-title">Start run</span>
-            <span className="mode-desc">{items.length} questions · clock starts</span>
+            <span className="mode-title">Start warm-up</span>
+            <span className="mode-desc">Up to 12 questions</span>
           </span>
         </motion.button>
       </section>
     )
   }
 
-  const totalSec = Math.floor(elapsed / 1000)
-  const clock = `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`
+  const expression =
+    round.question.prompt.type === 'expression'
+      ? round.question.prompt.expression
+      : round.probe.factId.replace('x', ' × ')
 
   return (
-    <section className="play">
-      <div className="play-hud">
-        <div className="hud-cell">
-          <span className="hud-label">Time</span>
-          <strong>{clock}</strong>
+    <section className="play placement-run" aria-label="Warm-up run">
+      <div className="play-toolbar">
+        <button type="button" className="icon-btn" onClick={leave} aria-label="Back home">←</button>
+        <div className="play-level-name">
+          <span>Warm-up</span>
+          <strong>Question {round.probe.questionNumber} · up to 12</strong>
         </div>
-        <div className="hud-cell hud-streak">
-          <img
-            src={gameAssets.icons.streakFire}
-            alt=""
-            className="hud-fire"
-            draggable={false}
-          />
-          <strong>{streak}</strong>
-          <span className="hud-label">Streak</span>
-        </div>
-        <div className="hud-cell">
-          <span className="hud-label">Question</span>
-          <strong>
-            {index + 1}/{items.length}
-          </strong>
-        </div>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onToggleMute}
+          aria-pressed={muted}
+          aria-label={muted ? 'Unmute' : 'Mute'}
+        >
+          {muted ? '×' : '♪'}
+        </button>
       </div>
 
-      <div className="play-progress-wrap">
-        <div className="play-progress" aria-hidden>
-          <span style={{ width: `${((index + 1) / items.length) * 100}%` }} />
+      {persistenceWarning ? (
+        <div className="save-warning" role="status">
+          <strong>Progress is not being saved.</strong> {persistenceWarning}
         </div>
-        <span className="progress-count">
-          Question <strong>{index + 1}</strong> of {items.length}
-        </span>
+      ) : null}
+
+      <div className="placement-question-progress">
+        <span style={{ width: `${(round.probe.questionNumber / 12) * 100}%` }} />
       </div>
 
       <div className="prompt-stage">
@@ -217,37 +394,35 @@ export function PlacementScreen({
           animate={{ y: [0, -4, 0] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <AnimatePresence mode="wait">
-          <motion.h2
-            key={item.factId}
-            className="prompt-expression"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+        {feedback && !feedback.correct ? (
+          <motion.button
+            type="button"
+            className="reveal-card"
+            onClick={continueAfterAnswer}
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
           >
-            {expression}
-          </motion.h2>
-        </AnimatePresence>
-        <div className={`answer-draft${draft ? '' : ' empty'}`}>{draft || ''}</div>
-        <div className={`feedback-line${hint ? ' miss' : ''}`}>{hint ?? ''}</div>
-        <p className="placement-foot">
-          <img
-            src={gameAssets.icons.lightning}
-            alt=""
-            className="pace-bolt"
-            draggable={false}
-          />
-          Fast answers help us tune your challenge!
-        </p>
+            <span className="reveal-eyebrow">Almost!</span>
+            <strong>{feedback.text}</strong>
+            <span className="reveal-got-it">Got it</span>
+          </motion.button>
+        ) : (
+          <div className="problem-card">
+            <h2 className="prompt-expression">{expression}</h2>
+            <div className={`answer-draft${draft ? '' : ' empty'}`}>{draft}</div>
+            {feedback?.correct ? <div className="placement-correct">Nice!</div> : null}
+          </div>
+        )}
       </div>
 
-      <Keypad
-        disabled={locked}
-        onDigit={(d) => setDraft((p) => (p.length >= 4 ? p : p + d))}
-        onBackspace={() => setDraft((p) => p.slice(0, -1))}
-        onEnter={submit}
-      />
+      {!feedback || feedback.correct ? (
+        <Keypad
+          disabled={locked}
+          onDigit={(digit) => setDraft((previous) => (previous.length >= 4 ? previous : previous + digit))}
+          onBackspace={() => setDraft((previous) => previous.slice(0, -1))}
+          onEnter={submit}
+        />
+      ) : null}
     </section>
   )
 }
