@@ -12,6 +12,7 @@ import {
   countV1Attempts,
   fixtureScript,
 } from './__fixtures__/v1Profile'
+import { applyAttempt, emptyFactRecord } from '../learning/mastery'
 
 const NOW = FIXTURE_T0 + 10 * 24 * 3_600_000
 
@@ -203,5 +204,31 @@ describe('v1 → v2 migration', () => {
     expect(normalizeLegacyFactKey('0x5')).toBeNull()
     expect(normalizeLegacyFactKey('13x1')).toBeNull()
     expect(normalizeLegacyFactKey('7x')).toBeNull()
+  })
+})
+
+describe('v1 recentAttempts truncation (8-attempt window)', () => {
+  it('migrates only the 8 attempts v1 kept, while the v1 counters survive in facts', () => {
+    const v1 = buildV1Fixture()
+    let rec = emptyFactRecord('4x9')
+    const times: number[] = []
+    for (let i = 0; i < 12; i++) {
+      const atMs = FIXTURE_T0 - 2 * 86_400_000 + i * 7_000
+      times.push(atMs)
+      rec = applyAttempt(rec, { correct: i % 3 !== 0, latencyMs: 2000 + i, atMs })
+    }
+    // What the shipped app persisted: 12 answers counted, only the newest 8 kept.
+    expect(rec.attempts).toBe(12)
+    expect(rec.recentAttempts).toHaveLength(8)
+    v1.facts['4x9'] = rec
+
+    const v2 = migrateV1ToV2(v1, NOW)
+    const raw = v2.rawLog.attempts.filter((a) => a.factId === '4x9')
+    expect(raw).toHaveLength(8)
+    expect(raw.map((a) => a.atMs)).toEqual(times.slice(-8))
+    expect(v2.migration?.v1Attempts).toBe(countV1Attempts(v1))
+    expect(v2.migration?.migratedAttempts).toBe(countV1Attempts(v1))
+    expect(v2.facts['4x9']!.attempts).toBe(12)
+    expect(v2.facts['4x9']!.recentAttempts).toEqual(rec.recentAttempts)
   })
 })

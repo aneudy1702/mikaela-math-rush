@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { LearnerProfile, RawAttempt, SessionRecord } from '../contracts'
+import type {
+  LearnerProfile,
+  LearnerProfileV1,
+  RawAttempt,
+  SessionRecord,
+} from '../contracts'
+import { isCanonicalFactId, isCoreFactId } from '../contracts'
 import { createMultiplicationSkill } from '../content/multiplication'
 import { createEmptyProfile } from '../learning'
 import { SessionEngine } from '../session'
@@ -89,13 +95,13 @@ describe('profile v2 storage', () => {
   it.each([
     ['not JSON', '{oops'],
     ['JSON null', 'null'],
-    ['wrong version', JSON.stringify({ version: 3, learnerName: 'x', facts: {} })],
-    ['missing facts', JSON.stringify({ version: 2, learnerName: 'x' })],
+    ['old version in the v2 key', JSON.stringify({ version: 1, learnerName: 'x', facts: {} })],
+    ['no progress/player (facts alone do not validate)', JSON.stringify({ version: 2, learnerName: 'x', facts: {} })],
     [
-      'corrupt raw log',
+      'no progress/player, corrupt raw log',
       JSON.stringify({ version: 2, learnerName: 'x', facts: {}, rawLog: { v: 1, ids: [], s: [], a: [[1]] } }),
     ],
-  ])('corrupt v2 (%s) falls back to v1 migration, then fresh', (_label, blob) => {
+  ])('unreadable v2 (%s) falls back to v1 migration, then fresh', (_label, blob) => {
     const { storage, v1Json } = storageWithV1()
     storage.setItem(PROFILE_STORAGE_KEY, blob)
     const withV1 = loadProfileFromStorage(storage)
@@ -253,14 +259,28 @@ describe('end-to-end: v1 profile → store → SessionEngine → save', () => {
     expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
   })
 
-  it('legacy engine behaves identically on the migrated profile and the v1 data', () => {
-    // Same seeds + same legacy inputs (facts, pending) → same question sequence.
-    const v1 = buildV1Fixture()
-    const migrated: LearnerProfile = migrateV1ToV2(v1, 0)
+  it('legacy engine behaves identically on the migrated profile and the raw v1 data', () => {
+    // A v1 profile with only canonical keys and core pending items (nothing for
+    // migration to merge or drop): the migrated `facts` must equal the raw v1 `facts`,
+    // and the same seeds must give the same question sequence on both.
+    const full = buildV1Fixture()
+    const v1: LearnerProfileV1 = {
+      ...full,
+      facts: Object.fromEntries(
+        Object.entries(full.facts).filter(([k]) => k !== '8x7' && k !== '07x8'),
+      ),
+      pendingReinforcements: full.pendingReinforcements.filter(
+        (p) => isCanonicalFactId(p.factId) && isCoreFactId(p.factId),
+      ),
+    }
+    const migrated: LearnerProfile = migrateV1ToV2(structuredClone(v1), 0)
+    expect(migrated.facts).toEqual(v1.facts)
+    expect(migrated.pendingReinforcements).toEqual(v1.pendingReinforcements)
+
     const reference: LearnerProfile = {
       ...createEmptyProfile(),
-      facts: structuredClone(migrated.facts),
-      pendingReinforcements: structuredClone(migrated.pendingReinforcements),
+      facts: structuredClone(v1.facts),
+      pendingReinforcements: structuredClone(v1.pendingReinforcements),
     }
     const run = (p: LearnerProfile) => {
       const e = new SessionEngine(p, createMultiplicationSkill(seeded(3)), 'quick', seeded(4))
