@@ -3,12 +3,13 @@ export {
   CORE_FACTS,
   STRETCH_FACTS,
   bandForFactors,
-  canonicalFactId,
   factsInBands,
   getFact,
-  parseFactId,
   type MultFact,
 } from './facts'
+
+/** D9 canonical fact identity lives in contracts (strict parse). */
+export { canonicalFactId, parseFactId } from '../../contracts'
 
 export {
   MULTIPLICATION_SKILL_ID,
@@ -16,3 +17,5 @@ export {
   generateForFact,
   resetQuestionSeq,
 } from './plugin'
+
+export { buildMultiplicationLevels } from './levels'

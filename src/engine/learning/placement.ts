@@ -1,4 +1,11 @@
-import type { FactAttempt, LearnerProfile } from '../contracts'
+import type {
+  FactAttempt,
+  LearnerProfile,
+  LevelId,
+  PlacementProbe,
+  PlacementResult,
+  StartLevelInference,
+} from '../contracts'
 import { CORE_FACTS, getFact } from '../content/multiplication'
 import { applyAttempt, emptyFactRecord } from './mastery'
 
@@ -93,4 +100,92 @@ export function completePlacement(
   profile.placementComplete = true
   profile.updatedAtMs = nowMs
   return profile
+}
+
+// ---- V2 placement staircase (D5) + start-level inference (D5b) — T6 implements -------
+// Stubs throw until then. The V1 exports above stay until T8.
+
+/** Staircase state (T6 owns the shape; treat as opaque outside placement). */
+export interface PlacementState {
+  /** Probes asked so far with their outcome, in order. */
+  asked: { probe: PlacementProbe; correct: boolean }[]
+  /** Per probed level, once decided. */
+  levelOutcomes: Record<LevelId, 'pass' | 'fail'>
+  finished: boolean
+}
+
+/** Fresh warm-up. */
+export function startPlacement(): PlacementState {
+  throw new Error('not implemented: startPlacement')
+}
+
+/** Next probe to ask, or null when the staircase has finished. */
+export function nextProbe(
+  state: PlacementState,
+  rng?: () => number,
+): PlacementProbe | null {
+  void state
+  void rng
+  throw new Error('not implemented: nextProbe')
+}
+
+/** Record the answer to a probe. Pure: returns the new state. */
+export function recordProbe(
+  state: PlacementState,
+  probe: PlacementProbe,
+  correct: boolean,
+): PlacementState {
+  void state
+  void probe
+  void correct
+  throw new Error('not implemented: recordProbe')
+}
+
+/** Final result once finished (null while still running). */
+export function placementResult(
+  state: PlacementState,
+): PlacementResult | null {
+  void state
+  throw new Error('not implemented: placementResult')
+}
+
+/**
+ * Apply a placement result: unlock (never complete) passed levels, set current and
+ * placementStartLevelId, set placementLikely flags. No XP, badges or records.
+ */
+export function applyPlacementResult(
+  profile: LearnerProfile,
+  result: PlacementResult,
+  nowMs?: number,
+): LearnerProfile {
+  void profile
+  void result
+  void nowMs
+  throw new Error('not implemented: applyPlacementResult')
+}
+
+/**
+ * D5b start-level inference from raw-log attempts at most inferenceMaxAgeDays old at
+ * `nowMs`, recomputed under D2 rules. Never reads v1 mastery scores.
+ */
+export function inferStartLevel(
+  profile: LearnerProfile,
+  nowMs?: number,
+): StartLevelInference {
+  void profile
+  void nowMs
+  throw new Error('not implemented: inferStartLevel')
+}
+
+/**
+ * Apply a 'recommend' inference: unlock L1..s, current = s, inferredStartLevelId = s,
+ * set everMastered silently. No XP, badges, records or celebrations. Other outcomes: no-op.
+ */
+export function applyStartLevelInference(
+  profile: LearnerProfile,
+  inference: StartLevelInference,
+): LearnerProfile {
+  void profile
+  void inference
+  throw new Error('not implemented: applyStartLevelInference')
 }

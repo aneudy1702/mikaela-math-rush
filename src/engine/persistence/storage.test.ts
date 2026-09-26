@@ -42,7 +42,7 @@ describe('learner profile persistence', () => {
     })
     expect(restored.facts['7x8']!.attempts).toBe(1)
     expect(restored.facts['2x2']).toBeDefined()
-    expect(restored.version).toBe(1)
+    expect(restored.version).toBe(2)
   })
 
   it('uses a stable storage key', () => {
