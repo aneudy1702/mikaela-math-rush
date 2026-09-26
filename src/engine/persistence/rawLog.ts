@@ -169,69 +169,144 @@ function arr(v: unknown): unknown[] {
   return v
 }
 
+function decodeSession(row: unknown, idAt: (i: unknown) => string): SessionRecord {
+  const r = arr(row)
+  return {
+    id: idAt(r[0]),
+    kind: uncode(KINDS, r[1]),
+    startedAtMs: num(r[2]),
+    endedAtMs: numOrNull(r[3]),
+    mode: r[4] === null ? null : uncode(MODES, r[4]),
+    levelId: strOrNull(r[5]),
+    inferred: flag(r[6]),
+    endReason: r[7] === null ? null : uncode(END_REASONS, r[7]),
+    isReplay: flag(r[8]),
+    pauses: arr(r[9]).map((p) => {
+      const q = arr(p)
+      return { startedAtMs: num(q[0]), endedAtMs: numOrNull(q[1]) }
+    }),
+    discardedOnHide: arr(r[10]).map((d) => {
+      const q = arr(d)
+      return {
+        factId: str(q[0]),
+        shownAtMs: num(q[1]),
+        discardedAtMs: num(q[2]),
+      }
+    }),
+  }
+}
+
+function decodeAttempt(
+  r: unknown[],
+  atMs: number,
+  idAt: (i: unknown) => string,
+): RawAttempt {
+  return {
+    factId: str(r[0]),
+    a: numOrNull(r[1]),
+    b: numOrNull(r[2]),
+    correct: flag(r[3]),
+    given: numOrNull(r[4]),
+    latencyMs: num(r[5]),
+    atMs,
+    sessionId: idAt(r[7]),
+    sessionInferred: flag(r[8]),
+    levelId: strOrNull(r[9]),
+    mode: r[10] === null ? null : uncode(MODES, r[10]),
+    source: uncode(SOURCES, r[11]),
+    isReplay: flag(r[12]),
+  }
+}
+
+function idLookup(ids: readonly (string | undefined)[]): (i: unknown) => string {
+  return (i) => {
+    const id = ids[num(i)]
+    if (id === undefined) throw new Error('raw log: bad session index')
+    return id
+  }
+}
+
 /** Decode a stored raw log. Throws on any malformed content (caller treats as corrupt). */
 export function decodeRawLog(value: unknown): RawLog {
   if (!value || typeof value !== 'object') throw new Error('raw log: not an object')
   const enc = value as Partial<EncodedRawLog>
   if (enc.v !== RAW_LOG_ENCODING_VERSION) throw new Error('raw log: bad version')
-  const ids = arr(enc.ids).map(str)
-  const idAt = (i: unknown): string => {
-    const n = num(i)
-    const id = ids[n]
-    if (id === undefined) throw new Error('raw log: bad session index')
-    return id
-  }
-
-  const sessions: SessionRecord[] = arr(enc.s).map((row) => {
-    const r = arr(row)
-    return {
-      id: idAt(r[0]),
-      kind: uncode(KINDS, r[1]),
-      startedAtMs: num(r[2]),
-      endedAtMs: numOrNull(r[3]),
-      mode: r[4] === null ? null : uncode(MODES, r[4]),
-      levelId: strOrNull(r[5]),
-      inferred: flag(r[6]),
-      endReason: r[7] === null ? null : uncode(END_REASONS, r[7]),
-      isReplay: flag(r[8]),
-      pauses: arr(r[9]).map((p) => {
-        const q = arr(p)
-        return { startedAtMs: num(q[0]), endedAtMs: numOrNull(q[1]) }
-      }),
-      discardedOnHide: arr(r[10]).map((d) => {
-        const q = arr(d)
-        return {
-          factId: str(q[0]),
-          shownAtMs: num(q[1]),
-          discardedAtMs: num(q[2]),
-        }
-      }),
-    }
-  })
-
+  const idAt = idLookup(arr(enc.ids).map(str))
+  const sessions = arr(enc.s).map((row) => decodeSession(row, idAt))
   let prevAt = 0
-  const attempts: RawAttempt[] = arr(enc.a).map((row) => {
+  const attempts = arr(enc.a).map((row) => {
     const r = arr(row)
     const atMs = prevAt + num(r[6])
     prevAt = atMs
-    return {
-      factId: str(r[0]),
-      a: numOrNull(r[1]),
-      b: numOrNull(r[2]),
-      correct: flag(r[3]),
-      given: numOrNull(r[4]),
-      latencyMs: num(r[5]),
-      atMs,
-      sessionId: idAt(r[7]),
-      sessionInferred: flag(r[8]),
-      levelId: strOrNull(r[9]),
-      mode: r[10] === null ? null : uncode(MODES, r[10]),
-      source: uncode(SOURCES, r[11]),
-      isReplay: flag(r[12]),
-    }
+    return decodeAttempt(r, atMs, idAt)
   })
-
   return { attempts, sessions }
+}
+
+export interface RawLogSalvage {
+  /** Every row that could be decoded: a valid (possibly empty) raw log. */
+  log: RawLog
+  /** Encoded attempt rows that could not be recovered (null when the count is unknown). */
+  droppedAttempts: number | null
+  /** Encoded session rows that could not be recovered (null when the count is unknown). */
+  droppedSessions: number | null
+}
+
+/**
+ * Best-effort decode of a damaged raw log (T0.1, D11 failure safety). Never throws.
+ * Bad rows are dropped one by one. Attempt timestamps are delta-encoded, so once a row's
+ * delta is unreadable every later timestamp is unknown: salvage stops there and the
+ * remaining attempts are dropped rather than kept with wrong times.
+ */
+export function salvageRawLog(value: unknown): RawLogSalvage {
+  const nothing: RawLogSalvage = {
+    log: { attempts: [], sessions: [] },
+    droppedAttempts: null,
+    droppedSessions: null,
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return nothing
+  const enc = value as Partial<EncodedRawLog>
+  if (enc.v !== RAW_LOG_ENCODING_VERSION || !Array.isArray(enc.ids)) return nothing
+  const idAt = idLookup(
+    (enc.ids as unknown[]).map((id) => (typeof id === 'string' ? id : undefined)),
+  )
+
+  const sessions: SessionRecord[] = []
+  let droppedSessions: number | null = null
+  if (Array.isArray(enc.s)) {
+    droppedSessions = 0
+    for (const row of enc.s as unknown[]) {
+      try {
+        sessions.push(decodeSession(row, idAt))
+      } catch {
+        droppedSessions++
+      }
+    }
+  }
+
+  const attempts: RawAttempt[] = []
+  let droppedAttempts: number | null = null
+  if (Array.isArray(enc.a)) {
+    const rows = enc.a as unknown[]
+    droppedAttempts = 0
+    let prevAt = 0
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const delta: unknown = Array.isArray(row) ? row[6] : undefined
+      if (typeof delta !== 'number' || !Number.isFinite(delta)) {
+        droppedAttempts += rows.length - i
+        break
+      }
+      prevAt += delta
+      try {
+        attempts.push(decodeAttempt(row as unknown[], prevAt, idAt))
+      } catch {
+        droppedAttempts++
+      }
+    }
+  }
+
+  return { log: { attempts, sessions }, droppedAttempts, droppedSessions }
 }
 
 /**
