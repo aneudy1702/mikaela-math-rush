@@ -65,7 +65,7 @@ Learning never generates questions (existing rule).
 | −1 | T-SIM | done | Checker: trustworthy with caveats; owner signed off revision 4 |
 | 0 | T-SIM2 (parallel with T0) | single | Sim updated to rev-4 rules, D12 invariants pass, experience-stuck with marks reported |
 | 0 | T0 | single | Owner approves frozen contracts; verifier passes |
-| 1 | T1, T2, T3, T4 | **4 in parallel** (disjoint new modules) | Each verified; merged to `v2/integration` in order T1, T4, T2, T3 |
+| 1 | T1, T2, T3, T4, T0.1 | **5 in parallel** (disjoint modules) | Each verified; merged to `v2/integration` in order T1, T4, T2, T3 |
 | 2 | T5, T6 | 2 in parallel | Verified + merged |
 | 3 | T7 | single (integration seam) | Scripted engine e2e passes; owner gate |
 | 4 | T8 | single (owns `App.tsx` + screens) | Owner reviews screenshots (desktop + phone) |
@@ -130,6 +130,16 @@ Learning never generates questions (existing rule).
 - Accept: v1 fixture → v2 loses no fact records; corrupt data → fresh profile; old key untouched after save;
   all existing tests still pass.
 
+### T0.1 — Persistence hardening  *(wave 1, parallel; follow-ups from T0 verification)*
+- Owns: `src/engine/persistence/**`, tests.
+- Corrupt `rawLog` inside an otherwise valid v2 blob must never trigger silent re-migration: keep progress/XP/records,
+  quarantine the bad raw log (and back up the rejected blob under a separate key) before any overwrite.
+- `deserializeProfile` validates `progress`/`rawLog`, not the deprecated `facts`, so T8's cleanup can't cause data loss.
+- `save()` handles `QuotaExceededError` (evict raw-log sessions per D11, retry once, then report) instead of throwing
+  through the UI.
+- Tests: damaged-rawLog blob; v1 8-attempt truncation; v2 save → load round-trip after the cap; replace the
+  tautological "identical" test with a comparison against raw v1 `facts`.
+
 ### T1 — Level ladder data  (D1)
 - Owns: `src/engine/curriculum/**`, `src/engine/content/multiplication/levels.ts` (new), tests.
 - The 10 levels per D1; helpers `getLevel`, `nextLevel`, `levelsUpTo`.
@@ -156,6 +166,7 @@ Learning never generates questions (existing rule).
   latency never changes status (D12 exact invariant as a unit test); marks go down when misses enter the window.
 
 ### T5 — Level-scoped selection  (D2, P1, P2, P8)
+- Also: one `canonicalFactId` (plugin uses the strict contracts version); multiplication plugin implements `conceptIdFor`.
 - Depends T1, T4. Owns: `src/engine/learning/selection.ts` (selection functions), `src/engine/orchestrator/**`, tests.
 - Pool = level table facts + review of earlier-owned facts (15% → 25% with carried facts); priority from T4; success
   floor ≥ 40%; remove `stretch`; reinforcement queue filtered to current + earlier levels.
@@ -169,6 +180,8 @@ Learning never generates questions (existing rule).
   unlocked not completed; stops on 2 consecutive misses.
 
 ### T7 — Session integration
+- Also: `player.xp` is the single XP source of truth (retire `gameXp` writes); append to raw log/evidence; avoid
+  re-encoding the whole raw log on every answer (save at safe points or incrementally).
 - Depends T2, T3, T4, T5. Owns: `src/engine/session/**`, tests.
 - `SessionEngine(profile, skill, mode, levelId?)`; real-elapsed clock with explicit `pause()/resume()` for visibility;
   finish pipeline: log → record → completion → XP/badges → `SessionResultSummaryV2`.
@@ -176,7 +189,8 @@ Learning never generates questions (existing rule).
   fact outside L1 + review; XP never touches facts.
 
 ### T8 — App wiring + screens  (absorbs former U0)
-- Depends T7, T6. Owns: `src/App.tsx`, `src/screens/**`, `src/components/**`, `src/index.css`.
+- Depends T7, T6. Owns: `src/App.tsx`, `src/screens/**`, `src/components/**`, `src/index.css`, and `src/engine/persistence/**`
+  for deprecated-field removal only.
 - Home: level ladder with current level + in-level fact progress, player level + XP bar, records for current level.
   Play: fact progress on incomplete levels; pace line/best only on completed levels. Evidence marks per fact (D10).
   Miss flow: reveal card, tap card / "Got it" (no "Next"). Results: level-up moment, XP breakdown,
