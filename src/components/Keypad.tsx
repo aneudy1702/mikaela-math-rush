@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import { playSfx, unlockAudio } from '../audio/engine'
 
 interface KeypadProps {
@@ -14,6 +15,12 @@ function tap() {
   playSfx('tap')
 }
 
+// Sound fires on pointerdown so it lands with the finger; keyboard
+// activation has no pointerdown, so click still needs to sound.
+function tapIfKeyboard(e: MouseEvent<HTMLButtonElement>) {
+  if (e.detail === 0) tap()
+}
+
 export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps) {
   return (
     <div className="keypad" role="group" aria-label="Number keypad">
@@ -25,8 +32,9 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
               type="button"
               className="key action back"
               disabled={disabled}
-              onClick={() => {
-                tap()
+              onPointerDown={tap}
+              onClick={(e) => {
+                tapIfKeyboard(e)
                 onBackspace()
               }}
               aria-label="Backspace"
@@ -42,8 +50,9 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
               type="button"
               className="key action enter"
               disabled={disabled}
-              onClick={() => {
-                tap()
+              onPointerDown={tap}
+              onClick={(e) => {
+                tapIfKeyboard(e)
                 onEnter()
               }}
               aria-label="Submit"
@@ -58,8 +67,9 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
             type="button"
             className="key"
             disabled={disabled}
-            onClick={() => {
-              tap()
+            onPointerDown={tap}
+            onClick={(e) => {
+              tapIfKeyboard(e)
               onDigit(key)
             }}
           >

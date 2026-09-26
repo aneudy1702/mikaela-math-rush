@@ -6,17 +6,17 @@ Provenance for every sample under `public/audio/`. Even when attribution is opti
 
 ## Music
 
-### rush-loop.mp3
+### rush-loop.m4a
 
-- **Asset:** `rush-loop.mp3`
-- **Source:** OpenGameArt — “Arcade fast flow Sound”
-- **Creator:** Trinnox
-- **Original URL:** https://opengameart.org/content/arcade-fast-flow-sound
-- **Original file:** `Arcade fast flow1_1.ogg`
-- **License:** CC-BY 3.0 / GPL (as listed on OpenGameArt)
+- **Asset:** `rush-loop.m4a`
+- **Source:** Pixabay — “GameOtoon”
+- **Creator:** SlimeyFox
+- **Original URL:** https://pixabay.com/music/happy-childrens-tunes-gameotoon-481311/
+- **Original file:** `slimeyfox-gameotoon-481311.mp3` (256 kbps, 48 kHz, 1:01.68)
+- **License:** Pixabay Content License (https://pixabay.com/service/license-summary/) — free to use in apps, no attribution required; may not be redistributed as a standalone audio file
 - **Downloaded:** 2026-09-26
-- **Modified:** Converted to MP3 (libmp3lame) for web delivery; looped as-is
-- **Notes:** Used as continuous play momentum. Attribution required (CC-BY 3.0). Pixabay “GameOtoon” was preferred in the guide but returned HTTP 403 from this environment; this CC-BY arcade loop is the licensed substitute.
+- **Modified:** Re-encoded to 128 kbps AAC (`afconvert`) for web delivery. Played on a loop window of 0.01s–60.41s (`musicLoop` in `src/audio/audioAssets.ts`) to skip the final ring-out.
+- **Notes:** Continuous play momentum, ~122 BPM. Replaces the earlier Trinnox “Arcade fast flow” CC-BY loop.
 
 ---
 
