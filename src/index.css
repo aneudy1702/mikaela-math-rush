@@ -620,6 +620,10 @@ img {
   font-size: 1rem;
 }
 
+.problem-card .answer-draft {
+  margin: 12px auto 0;
+}
+
 .answer-draft {
   position: relative;
   z-index: 1;
