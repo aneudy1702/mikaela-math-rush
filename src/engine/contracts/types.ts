@@ -116,6 +116,10 @@ export interface LearnerProfile {
   facts: Record<string, FactRecord>
   bestTimeMsByMode: Partial<Record<SessionMode, number>>
   bestStreakByMode: Partial<Record<SessionMode, number>>
+  /** Consecutive calendar days with at least one finished session. */
+  dailyStreak: number
+  /** Local calendar day key (YYYY-MM-DD) of last finished session. */
+  lastPlayDayKey: string | null
   /** Game XP — never write into academic mastery fields. */
   gameXp: number
   /** Pending spaced practice surviving session boundaries. */

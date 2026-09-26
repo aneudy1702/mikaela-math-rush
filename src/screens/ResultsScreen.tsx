@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { gameAssets } from '../assets'
 import type { SessionResultSummary } from '../engine'
 
 interface ResultsScreenProps {
@@ -7,80 +8,196 @@ interface ResultsScreenProps {
   onHome: () => void
 }
 
-function formatTime(ms: number): string {
-  const s = ms / 1000
-  const m = Math.floor(s / 60)
-  const rem = (s % 60).toFixed(1)
-  return m > 0 ? `${m}:${rem.padStart(4, '0')}` : `${s.toFixed(1)}s`
+function formatClock(ms: number): string {
+  const total = Math.floor(ms / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function learningLine(summary: SessionResultSummary): string {
-  if (summary.softMisses > 0 && summary.recoveries > 0) {
-    return `Came back to ${summary.softMisses} soft miss${summary.softMisses === 1 ? '' : 'es'} — you fixed ${summary.recoveries}.`
-  }
-  if (summary.factsGettingStronger > 0) {
-    return `${summary.factsGettingStronger} fact${summary.factsGettingStronger === 1 ? '' : 's'} getting stronger.`
-  }
-  return 'Nice work — keep racing yesterday’s you.'
+function formatDelta(deltaMs: number | null): string | null {
+  if (deltaMs == null) return null
+  const sec = Math.round(Math.abs(deltaMs) / 1000)
+  if (deltaMs < 0) return `${sec} sec faster than your best!`
+  if (deltaMs > 0) return `${sec} sec behind your best`
+  return 'Matched your best!'
 }
 
 export function ResultsScreen({ summary, onAgain, onHome }: ResultsScreenProps) {
+  const perfect = summary.correctCount === summary.total
+  const showVictory =
+    summary.newTimeRecord || summary.newStreakRecord || perfect
+  const deltaLine = formatDelta(summary.deltaVsPreviousBestMs)
+  const beatLabel =
+    summary.previousBestTimeMs != null
+      ? `Beat ${formatClock(summary.previousBestTimeMs)}`
+      : 'Race again'
+
   return (
-    <section className="results">
+    <section className={`results${showVictory ? ' victory' : ''}`}>
+      {showVictory ? (
+        <div className="results-hero" aria-hidden>
+          <motion.img
+            src={gameAssets.effects.celebrationBurst}
+            alt=""
+            className="results-burst"
+            draggable={false}
+            initial={{ scale: 0.2, opacity: 0 }}
+            animate={{ scale: 1, opacity: 0.95 }}
+            transition={{ type: 'spring', stiffness: 150, damping: 14 }}
+          />
+          <motion.img
+            src={gameAssets.characters.victory}
+            alt=""
+            className="results-victory"
+            draggable={false}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+      ) : (
+        <motion.img
+          src={gameAssets.icons.trophy}
+          alt=""
+          className="results-trophy-solo"
+          draggable={false}
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+        />
+      )}
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        className="results-head"
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.4 }}
       >
-        <h1>Session done</h1>
+        <h1>
+          {summary.newTimeRecord || summary.newStreakRecord
+            ? 'New Record!'
+            : perfect
+              ? 'Perfect Run!'
+              : 'Great Run!'}
+        </h1>
         {(summary.newTimeRecord || summary.newStreakRecord) && (
-          <p className="record-banner">
-            {summary.newTimeRecord ? 'NEW RECORD' : 'New streak record'}
-          </p>
+          <img
+            src={gameAssets.icons.trophy}
+            alt=""
+            className="results-trophy-inline"
+            draggable={false}
+          />
         )}
-        <p className="learning-line">{learningLine(summary)}</p>
       </motion.div>
 
+      <div className="results-time-card">
+        <span className="stat-label">Your Best Time</span>
+        <div className="stat-value cyan xl">{formatClock(summary.elapsedMs)}</div>
+        {deltaLine && summary.deltaVsPreviousBestMs != null && summary.deltaVsPreviousBestMs < 0 ? (
+          <div className="delta-pill">
+            <img
+              src={gameAssets.icons.lightning}
+              alt=""
+              className="pace-bolt"
+              draggable={false}
+            />
+            {deltaLine}
+          </div>
+        ) : null}
+      </div>
+
       <div className="results-grid">
-        <div>
+        <div className="mini-stat">
           <span className="stat-label">Score</span>
           <div className="stat-value">
-            {summary.correctCount}/{summary.total}
+            {summary.correctCount} / {summary.total}
           </div>
         </div>
-        <div>
-          <span className="stat-label">Time</span>
-          <div className="stat-value">{formatTime(summary.elapsedMs)}</div>
-        </div>
-        <div>
-          <span className="stat-label">Longest streak</span>
+        <div className="mini-stat">
+          <span className="stat-label">
+            <img
+              src={gameAssets.icons.streakFire}
+              alt=""
+              className="inline-icon"
+              draggable={false}
+            />
+            Longest Streak
+          </span>
           <div className="stat-value">{summary.longestStreak}</div>
         </div>
-        <div>
-          <span className="stat-label">Avg answer</span>
+        <div className="mini-stat">
+          <span className="stat-label">Avg Answer</span>
           <div className="stat-value">
             {(summary.avgLatencyMs / 1000).toFixed(1)}s
           </div>
         </div>
+        <div className="mini-stat">
+          <span className="stat-label">
+            <img
+              src={gameAssets.icons.lightning}
+              alt=""
+              className="inline-icon"
+              draggable={false}
+            />
+            vs Best
+          </span>
+          <div className="stat-value">
+            {summary.deltaVsPreviousBestMs == null
+              ? '—'
+              : summary.deltaVsPreviousBestMs < 0
+                ? `${Math.round(Math.abs(summary.deltaVsPreviousBestMs) / 1000)}s`
+                : '—'}
+          </div>
+        </div>
       </div>
 
-      <div className="home-cta">
+      {summary.factsGettingStronger > 0 ? (
+        <div className="mastery-card">
+          <span className="stat-label">Multiplication Mastery</span>
+          <p>You&apos;re getting stronger!</p>
+          <div className="mastery-bar" aria-hidden>
+            <span
+              style={{
+                width: `${Math.min(100, 20 + summary.factsGettingStronger * 4)}%`,
+              }}
+            />
+          </div>
+          <strong className="mastery-delta">
+            +{Math.min(12, summary.factsGettingStronger)}%
+          </strong>
+        </div>
+      ) : null}
+
+      <div className="results-cta">
         <motion.button
           type="button"
-          className="btn-primary btn-pulse"
+          className="mode-btn mode-quick"
           onClick={onAgain}
-          whileTap={{ scale: 0.97 }}
+          whileTap={{ scale: 0.98 }}
         >
-          Play again
+          <span className="mode-copy">
+            <span className="mode-title">Play Again</span>
+          </span>
         </motion.button>
         <motion.button
           type="button"
-          className="btn-secondary"
-          onClick={onHome}
-          whileTap={{ scale: 0.97 }}
+          className="mode-btn mode-practice"
+          onClick={onAgain}
+          whileTap={{ scale: 0.98 }}
         >
-          Home
+          <img
+            src={gameAssets.icons.rushFlag}
+            alt=""
+            className="mode-icon"
+            draggable={false}
+          />
+          <span className="mode-copy">
+            <span className="mode-title">{beatLabel}</span>
+          </span>
         </motion.button>
+        <button type="button" className="text-link" onClick={onHome}>
+          Home
+        </button>
       </div>
     </section>
   )

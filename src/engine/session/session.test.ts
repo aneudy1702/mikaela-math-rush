@@ -26,7 +26,10 @@ describe('session engine vertical loop', () => {
     const summary = engine.getSummary()
     expect(summary?.correctCount).toBe(10)
     expect(summary?.total).toBe(10)
+    expect(summary?.previousBestTimeMs).toBeNull()
+    expect(summary?.deltaVsPreviousBestMs).toBeNull()
     expect(engine.getProfile().gameXp).toBeGreaterThan(0)
+    expect(engine.getProfile().dailyStreak).toBe(1)
   })
 
   it('holds soft miss on the same fact until correct product is typed', () => {

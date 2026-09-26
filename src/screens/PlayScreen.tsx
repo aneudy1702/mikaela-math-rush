@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { gameAssets } from '../assets'
 import type { FeedbackTier, SessionSnapshot } from '../engine'
 import { Keypad } from '../components/Keypad'
 
 interface PlayScreenProps {
   snapshot: SessionSnapshot
+  bestTimeMs?: number
   onSubmit: (value: number) => void
+  onBack?: () => void
+  muted?: boolean
+  onToggleMute?: () => void
 }
 
-function formatTime(ms: number): string {
-  const s = Math.max(0, ms) / 1000
-  const m = Math.floor(s / 60)
-  const rem = (s % 60).toFixed(1)
-  return m > 0 ? `${m}:${rem.padStart(4, '0')}` : `${s.toFixed(1)}s`
+function formatClock(ms: number): string {
+  const total = Math.floor(Math.max(0, ms) / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function formatBest(ms: number | undefined): string {
+  if (ms == null) return '—'
+  return formatClock(ms)
 }
 
 function feedbackLabel(tier: FeedbackTier | null, reveal: string | null): {
@@ -24,22 +34,40 @@ function feedbackLabel(tier: FeedbackTier | null, reveal: string | null): {
     return { text: reveal ? `Almost! ${reveal}` : 'Almost!', kind: 'miss' }
   }
   if (tier === 'got-it-back') return { text: 'Got it back!', kind: 'recovery' }
-  if (tier === 'correct-subtle') return { text: '', kind: 'ok' }
+  if (tier === 'correct-subtle') return { text: 'Nice!', kind: 'ok' }
   if (tier === 'new-record') return { text: 'New record!', kind: 'celeb' }
   const map: Record<string, string> = {
     'streak-5': 'Nice!',
-    'streak-10': 'On Fire',
-    'streak-25': 'Incredible',
-    'streak-50': 'Unstoppable',
-    'streak-100': 'Perfect Run',
+    'streak-10': 'On Fire!',
+    'streak-25': 'Incredible!',
+    'streak-50': 'Unstoppable!',
+    'streak-100': 'Perfect Run!',
   }
   return { text: map[tier] ?? '', kind: 'celeb' }
 }
 
-export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
+function isMilestone(tier: FeedbackTier | null): boolean {
+  return (
+    tier === 'streak-5' ||
+    tier === 'streak-10' ||
+    tier === 'streak-25' ||
+    tier === 'streak-50' ||
+    tier === 'streak-100'
+  )
+}
+
+export function PlayScreen({
+  snapshot,
+  bestTimeMs,
+  onSubmit,
+  onBack,
+  muted,
+  onToggleMute,
+}: PlayScreenProps) {
   const [draft, setDraft] = useState('')
   const [locked, setLocked] = useState(false)
   const [shake, setShake] = useState(false)
+  const [showBurst, setShowBurst] = useState(false)
   const missHold = snapshot.missHold
   const question = snapshot.current?.question
   const expression = missHold
@@ -61,9 +89,32 @@ export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
     }
   }, [snapshot.lastFeedback, snapshot.lastReveal])
 
+  useEffect(() => {
+    const major =
+      snapshot.lastFeedback === 'streak-25' ||
+      snapshot.lastFeedback === 'streak-50' ||
+      snapshot.lastFeedback === 'streak-100'
+    if (!major) return
+    setShowBurst(true)
+    const id = window.setTimeout(() => setShowBurst(false), 1400)
+    return () => window.clearTimeout(id)
+  }, [snapshot.lastFeedback, snapshot.streak])
+
   const progress = snapshot.total > 0 ? snapshot.index / snapshot.total : 0
+  const displayQ = Math.min(snapshot.index + (missHold ? 0 : 1), snapshot.total)
   const fb = feedbackLabel(snapshot.lastFeedback, snapshot.lastReveal)
   const streakHot = snapshot.streak >= 5
+  const milestone = isMilestone(snapshot.lastFeedback)
+
+  // Pace vs previous best (projected): if finishing at current avg would beat best.
+  const paceDeltaSec =
+    bestTimeMs != null && snapshot.index > 0
+      ? Math.round(
+          (bestTimeMs -
+            (snapshot.elapsedMs / snapshot.index) * snapshot.total) /
+            1000,
+        )
+      : null
 
   function appendDigit(d: string) {
     if (locked) return
@@ -81,7 +132,6 @@ export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
     if (!Number.isFinite(value)) return
     setLocked(true)
     onSubmit(value)
-    // Unlock quickly if miss-continue was wrong so kid can retry.
     if (missHold) {
       window.setTimeout(() => setLocked(false), 120)
     }
@@ -89,39 +139,118 @@ export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
 
   return (
     <section className="play">
-      <div className="play-top">
-        <span>
-          Q <strong>{Math.min(snapshot.index + (missHold ? 0 : 1), snapshot.total)}</strong>{' '}
-          / {snapshot.total}
-        </span>
-        <motion.span
-          className={`streak-stat${streakHot ? ' hot' : ''}`}
-          key={snapshot.streak}
-          initial={
-            snapshot.lastFeedback === 'correct-subtle' ||
-            snapshot.lastFeedback === 'got-it-back' ||
-            (snapshot.lastFeedback?.startsWith('streak-') ?? false)
-              ? { scale: 1.25 }
-              : false
-          }
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 420, damping: 18 }}
-        >
-          Streak <strong>{snapshot.streak}</strong>
-        </motion.span>
-        <span className={snapshot.timerPaused ? 'timer-paused' : undefined}>
-          TIME <strong>{formatTime(snapshot.elapsedMs)}</strong>
-          {snapshot.timerPaused ? <span className="pause-tag"> paused</span> : null}
-        </span>
+      <div className="play-toolbar">
+        {onBack ? (
+          <button type="button" className="icon-btn" onClick={onBack} aria-label="Back">
+            ←
+          </button>
+        ) : (
+          <span className="icon-btn ghost" />
+        )}
+        {onToggleMute ? (
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onToggleMute}
+            aria-pressed={muted}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? '×' : '♪'}
+          </button>
+        ) : null}
       </div>
 
-      <div className="play-progress" aria-hidden>
-        <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
+      <div className="play-hud">
+        <div className="hud-cell">
+          <span className="hud-label">
+            <span className="hud-clock-dot" aria-hidden />
+            Time
+          </span>
+          <strong className={snapshot.timerPaused ? 'timer-paused' : undefined}>
+            {formatClock(snapshot.elapsedMs)}
+          </strong>
+        </div>
+        <motion.div
+          className={`hud-cell hud-streak${streakHot ? ' hot' : ''}`}
+          key={`streak-${snapshot.streak}-${snapshot.lastFeedback}`}
+          animate={
+            milestone
+              ? { scale: [1, 1.35, 1], rotate: [0, -5, 5, 0] }
+              : { scale: 1, rotate: 0 }
+          }
+          transition={{ duration: 0.45 }}
+        >
+          <img
+            src={gameAssets.icons.streakFire}
+            alt=""
+            className="hud-fire"
+            draggable={false}
+          />
+          <strong>{snapshot.streak}</strong>
+          <span className="hud-label">Streak</span>
+        </motion.div>
+        <div className="hud-cell">
+          <span className="hud-label">
+            <img
+              src={gameAssets.icons.trophy}
+              alt=""
+              className="hud-mini"
+              draggable={false}
+            />
+            Best
+          </span>
+          <strong className="cyan">{formatBest(bestTimeMs)}</strong>
+        </div>
+      </div>
+
+      <div className="play-progress-wrap">
+        <div className="play-progress" aria-hidden>
+          <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
+        </div>
+        <img
+          src={gameAssets.icons.rushFlag}
+          alt=""
+          className="progress-flag"
+          draggable={false}
+        />
+        <span className="progress-count">
+          {displayQ} / {snapshot.total}
+        </span>
       </div>
 
       <div
         className={`prompt-stage${snapshot.current?.isBossPresentation && !missHold ? ' boss' : ''}${missHold ? ' miss-hold' : ''}`}
       >
+        <motion.img
+          src={gameAssets.characters.runner}
+          alt=""
+          className="play-runner"
+          draggable={false}
+          animate={{
+            y: [0, -5, 0],
+            x: `${(progress - 0.5) * 12}%`,
+          }}
+          transition={{
+            y: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
+            x: { duration: 0.6 },
+          }}
+        />
+
+        <AnimatePresence>
+          {showBurst ? (
+            <motion.img
+              src={gameAssets.effects.celebrationBurst}
+              alt=""
+              className="play-burst"
+              draggable={false}
+              initial={{ scale: 0.2, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.9 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 150, damping: 14 }}
+            />
+          ) : null}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
           <motion.h2
             key={missHold ? `miss-${missHold.reveal}` : (question?.id ?? 'empty')}
@@ -147,7 +276,7 @@ export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
           }
           transition={{ duration: shake ? 0.32 : 0.22 }}
         >
-          {draft || '·'}
+          {draft || ''}
         </motion.div>
 
         <div className={`feedback-line ${fb.kind}`}>
@@ -160,11 +289,19 @@ export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
             fb.text
           )}
         </div>
-        {!missHold && snapshot.streak > 0 ? (
-          <div className={`streak-chip${streakHot ? ' hot' : ''}`}>
-            ×{snapshot.streak} streak
+
+        {!missHold && paceDeltaSec != null && paceDeltaSec > 0 && snapshot.index >= 3 ? (
+          <div className="pace-line">
+            <img
+              src={gameAssets.icons.lightning}
+              alt=""
+              className="pace-bolt"
+              draggable={false}
+            />
+            {paceDeltaSec} sec ahead of your best!
           </div>
         ) : null}
+
         {!missHold && snapshot.current?.isReinforcement ? (
           <div className="coming-back">Coming back to this one</div>
         ) : null}

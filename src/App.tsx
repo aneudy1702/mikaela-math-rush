@@ -30,10 +30,10 @@ const skill = createMultiplicationSkill()
 
 function formatBest(ms: number | undefined): string {
   if (ms == null) return '—'
-  const s = ms / 1000
-  const m = Math.floor(s / 60)
-  const rem = (s % 60).toFixed(1)
-  return m > 0 ? `${m}:${rem.padStart(4, '0')}` : `${s.toFixed(1)}s`
+  const total = Math.floor(ms / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 function feedbackToSfx(tier: FeedbackTier | null): SfxEvent | null {
@@ -60,14 +60,26 @@ export function App() {
   const [muted, setMutedState] = useState(() => readMuted())
   const [clock, setClock] = useState(0)
   const [placementItems, setPlacementItems] = useState<PlacementItem[]>([])
+  const [installHint, setInstallHint] = useState(false)
   const engineRef = useRef<SessionEngine | null>(null)
   const lastSfxKey = useRef<string>('')
+  const deferredPrompt = useRef<{ prompt: () => Promise<void> } | null>(null)
 
   useEffect(() => {
     if (screen !== 'play') return
     const id = window.setInterval(() => setClock((c) => c + 1), 200)
     return () => window.clearInterval(id)
   }, [screen])
+
+  useEffect(() => {
+    const onBip = (e: Event) => {
+      e.preventDefault()
+      deferredPrompt.current = e as unknown as { prompt: () => Promise<void> }
+      setInstallHint(true)
+    }
+    window.addEventListener('beforeinstallprompt', onBip)
+    return () => window.removeEventListener('beforeinstallprompt', onBip)
+  }, [])
 
   function ensureAudio() {
     void unlockAudio()
@@ -83,10 +95,18 @@ export function App() {
     setMutedState(toggleMuted())
   }
 
+  async function handleInstall() {
+    if (deferredPrompt.current) {
+      await deferredPrompt.current.prompt()
+      deferredPrompt.current = null
+      setInstallHint(false)
+    }
+  }
+
   function startPlacement() {
     ensureAudio()
     playSfx('start')
-    setPlacementItems(buildPlacementSequence(16))
+    setPlacementItems(buildPlacementSequence(12))
     setScreen('placement')
   }
 
@@ -136,8 +156,12 @@ export function App() {
           items={placementItems}
           profile={profile}
           onUpdateProfile={persist}
+          onBack={goHome}
+          muted={muted}
+          onToggleMute={handleToggleMute}
           onDone={(done) => {
             persist(done)
+            playSfx('new-record')
             setScreen('home')
           }}
         />
@@ -149,9 +173,19 @@ export function App() {
     const snapshot = engineRef.current.snapshot(Date.now())
     void clock
     if (!snapshot.finished && (snapshot.current || snapshot.missHold)) {
+      const mode = snapshot.mode
+      // Previous best before this session (profile already may update at finish only)
+      const bestBefore = profile.bestTimeMsByMode[mode]
       return (
         <div className="app-shell">
-          <PlayScreen snapshot={snapshot} onSubmit={handleSubmit} />
+          <PlayScreen
+            snapshot={snapshot}
+            bestTimeMs={bestBefore}
+            onSubmit={handleSubmit}
+            onBack={goHome}
+            muted={muted}
+            onToggleMute={handleToggleMute}
+          />
         </div>
       )
     }
@@ -176,6 +210,7 @@ export function App() {
     <div className="app-shell">
       <HomeScreen
         bestQuick={formatBest(profile.bestTimeMsByMode.quick)}
+        dailyStreak={profile.dailyStreak}
         muted={muted}
         needsPlacement={!profile.placementComplete}
         onToggleMute={handleToggleMute}
@@ -183,6 +218,8 @@ export function App() {
         onPractice={() => startSession('practice')}
         onRush={() => startSession('rush')}
         onPlacement={startPlacement}
+        showInstallHint={installHint}
+        onInstallHint={() => void handleInstall()}
       />
     </div>
   )

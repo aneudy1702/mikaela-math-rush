@@ -11,7 +11,7 @@ import type {
   SoftMissHold,
 } from '../contracts'
 import { DEFAULT_SELECTION_STRATEGY, SESSION_LENGTHS } from '../contracts'
-import { awardGameXp, recordBest } from '../learning'
+import { awardGameXp, recordBest, touchDailyStreak } from '../learning'
 import { QuestionOrchestrator } from '../orchestrator'
 
 const STREAK_TIERS: { streak: number; tier: FeedbackTier }[] = [
@@ -46,6 +46,10 @@ export interface SessionResultSummary {
   softMisses: number
   recoveries: number
   factsGettingStronger: number
+  /** Best before this session (if any). */
+  previousBestTimeMs: number | null
+  /** Negative = faster than previous best. */
+  deltaVsPreviousBestMs: number | null
 }
 
 /**
@@ -277,12 +281,13 @@ export class SessionEngine {
     this.profile.updatedAtMs = nowMs
 
     const elapsedMs = this.elapsed(nowMs)
-    const { newTimeRecord, newStreakRecord } = recordBest(
+    const { newTimeRecord, newStreakRecord, previousBestTimeMs } = recordBest(
       this.profile,
       this.config.mode,
       elapsedMs,
       this.longestStreak,
     )
+    touchDailyStreak(this.profile, nowMs)
     if (newTimeRecord || newStreakRecord) {
       this.lastFeedback = 'new-record'
     }
@@ -293,6 +298,9 @@ export class SessionEngine {
         f.recentAttempts.length > 0 &&
         f.recentAttempts[f.recentAttempts.length - 1]?.correct,
     ).length
+
+    const deltaVsPreviousBestMs =
+      previousBestTimeMs != null ? elapsedMs - previousBestTimeMs : null
 
     this.summary = {
       mode: this.config.mode,
@@ -309,6 +317,8 @@ export class SessionEngine {
       softMisses: this.softMisses,
       recoveries: this.recoveries,
       factsGettingStronger,
+      previousBestTimeMs,
+      deltaVsPreviousBestMs,
     }
   }
 }

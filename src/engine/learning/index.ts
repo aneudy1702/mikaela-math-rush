@@ -20,6 +20,8 @@ export {
   createEmptyProfile,
   ensureFact,
   recordBest,
+  touchDailyStreak,
+  dayKey,
   selectNextFact,
   type SelectionResult,
 } from './selection'

@@ -31,9 +31,41 @@ export function createEmptyProfile(
     facts,
     bestTimeMsByMode: {},
     bestStreakByMode: {},
+    dailyStreak: 0,
+    lastPlayDayKey: null,
     gameXp: 0,
     pendingReinforcements: [],
   }
+}
+
+export function dayKey(nowMs: number): string {
+  const d = new Date(nowMs)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function previousDayKey(key: string): string {
+  const [y, m, d] = key.split('-').map(Number)
+  const dt = new Date(y!, m! - 1, d!)
+  dt.setDate(dt.getDate() - 1)
+  return dayKey(dt.getTime())
+}
+
+/** Bump calendar-day play streak when a session finishes. */
+export function touchDailyStreak(
+  profile: LearnerProfile,
+  nowMs = Date.now(),
+): void {
+  const today = dayKey(nowMs)
+  if (profile.lastPlayDayKey === today) return
+  if (profile.lastPlayDayKey && previousDayKey(today) === profile.lastPlayDayKey) {
+    profile.dailyStreak = Math.max(1, profile.dailyStreak) + 1
+  } else {
+    profile.dailyStreak = 1
+  }
+  profile.lastPlayDayKey = today
 }
 
 export function ensureFact(
@@ -209,12 +241,16 @@ export function recordBest(
   mode: SessionMode,
   timeMs: number,
   streak: number,
-): { newTimeRecord: boolean; newStreakRecord: boolean } {
-  const prevTime = profile.bestTimeMsByMode[mode]
+): {
+  newTimeRecord: boolean
+  newStreakRecord: boolean
+  previousBestTimeMs: number | null
+} {
+  const prevTime = profile.bestTimeMsByMode[mode] ?? null
   const prevStreak = profile.bestStreakByMode[mode] ?? 0
   const newTimeRecord = prevTime == null || timeMs < prevTime
   const newStreakRecord = streak > prevStreak
   if (newTimeRecord) profile.bestTimeMsByMode[mode] = timeMs
   if (newStreakRecord) profile.bestStreakByMode[mode] = streak
-  return { newTimeRecord, newStreakRecord }
+  return { newTimeRecord, newStreakRecord, previousBestTimeMs: prevTime }
 }

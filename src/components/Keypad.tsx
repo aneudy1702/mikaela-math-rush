@@ -7,7 +7,7 @@ interface KeypadProps {
   onEnter: () => void
 }
 
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'Go'] as const
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', '✓'] as const
 
 function tap() {
   void unlockAudio()
@@ -23,7 +23,7 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
             <button
               key={key}
               type="button"
-              className="key action"
+              className="key action back"
               disabled={disabled}
               onClick={() => {
                 tap()
@@ -35,7 +35,7 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
             </button>
           )
         }
-        if (key === 'Go') {
+        if (key === '✓') {
           return (
             <button
               key={key}
@@ -46,8 +46,9 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
                 tap()
                 onEnter()
               }}
+              aria-label="Submit"
             >
-              Go
+              ✓
             </button>
           )
         }

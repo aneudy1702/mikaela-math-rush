@@ -79,6 +79,10 @@ export function rehydrateProfile(raw: LearnerProfile): LearnerProfile {
     facts: { ...base.facts, ...raw.facts },
     bestTimeMsByMode: { ...raw.bestTimeMsByMode },
     bestStreakByMode: { ...raw.bestStreakByMode },
+    dailyStreak:
+      typeof raw.dailyStreak === 'number' ? raw.dailyStreak : 0,
+    lastPlayDayKey:
+      typeof raw.lastPlayDayKey === 'string' ? raw.lastPlayDayKey : null,
     gameXp: raw.gameXp ?? 0,
     placementComplete: Boolean(raw.placementComplete),
     pendingReinforcements: Array.isArray(raw.pendingReinforcements)
