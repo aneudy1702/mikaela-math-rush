@@ -2,7 +2,7 @@
 
 export const audioAssets = {
   music: {
-    rush: '/audio/music/rush-loop.mp3',
+    rush: '/audio/music/rush-loop.m4a',
   },
   sfx: {
     tap: '/audio/sfx/tap.ogg',
@@ -14,6 +14,16 @@ export const audioAssets = {
     milestone: '/audio/sfx/milestone.ogg',
     victory: '/audio/sfx/victory.ogg',
   },
+} as const
+
+/**
+ * Seamless loop window for the music, in seconds. GameOtoon ends on a hit
+ * that rings out; jumping from that hit back to the opening hit keeps the
+ * downbeat on the grid and skips the ~1s decay.
+ */
+export const musicLoop = {
+  start: 0.01,
+  end: 60.41,
 } as const
 
 /** Relative volumes — music must stay under feedback. */

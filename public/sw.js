@@ -1,9 +1,22 @@
 /* Minimal offline shell for Add to Home Screen. */
-const CACHE = 'mikaela-math-rush-v1'
+const CACHE = 'mikaela-math-rush-v3'
+const PRECACHE = [
+  '/',
+  '/manifest.webmanifest',
+  '/audio/music/rush-loop.m4a',
+  '/audio/sfx/tap.ogg',
+  '/audio/sfx/correct.ogg',
+  '/audio/sfx/miss.ogg',
+  '/audio/sfx/streak-small.ogg',
+  '/audio/sfx/streak-big.ogg',
+  '/audio/sfx/boss-start.ogg',
+  '/audio/sfx/milestone.ogg',
+  '/audio/sfx/victory.ogg',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(['/', '/manifest.webmanifest'])),
+    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)),
   )
   self.skipWaiting()
 })

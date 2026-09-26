@@ -84,10 +84,7 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    if (screen === 'play') return
-    if (screen === 'home' || screen === 'placement') {
-      gameAudio.stopMusic()
-    }
+    if (screen === 'home') gameAudio.stopMusic()
   }, [screen])
 
   function ensureAudio() {
@@ -115,7 +112,8 @@ export function App() {
   function startPlacement() {
     ensureAudio()
     playSfx('start')
-    gameAudio.stopMusic()
+    gameAudio.resetSessionFlags()
+    gameAudio.startMusic()
     setPlacementItems(buildPlacementSequence(12))
     setScreen('placement')
   }
