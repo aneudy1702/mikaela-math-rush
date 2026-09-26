@@ -26,18 +26,22 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 ## Deploy (Heroku)
 
-GitHub Actions deploys `main` to Heroku. Required repo secrets:
+GitHub Actions deploys `main` to Heroku. Add this repo secret:
 
 | Secret | Value |
 | --- | --- |
 | `HEROKU_API_KEY` | Account → Account settings → API Key |
-| `HEROKU_APP_NAME` | Heroku app name (e.g. `mikaela-math-rush`) |
+
+Optional: `HEROKU_APP_NAME` (defaults to `mikaela-math-rush`). The workflow creates the app on first deploy if it does not exist.
 
 ```bash
+# One-time local deploy (optional)
 heroku create mikaela-math-rush
 heroku buildpacks:set heroku/nodejs
 git push heroku main
 ```
+
+Live URL once deployed: `https://mikaela-math-rush.herokuapp.com`
 
 ## Play (V1)
 

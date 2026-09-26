@@ -39,10 +39,11 @@ jobs:
           HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
         run: |
           set -euo pipefail
-          if [ -z "${HEROKU_API_KEY:-}" ] || [ -z "${HEROKU_APP_NAME:-}" ]; then
-            echo "Missing HEROKU_API_KEY or HEROKU_APP_NAME secrets"
+          if [ -z "${HEROKU_API_KEY:-}" ]; then
+            echo "Missing HEROKU_API_KEY secret"
             exit 1
           fi
+          APP_NAME="${HEROKU_APP_NAME:-mikaela-math-rush}"
           cat > ~/.netrc <<EOF
           machine api.heroku.com
             login _
@@ -52,5 +53,11 @@ jobs:
             password ${HEROKU_API_KEY}
           EOF
           chmod 600 ~/.netrc
-          heroku git:remote -a "$HEROKU_APP_NAME"
+          if ! heroku apps:info -a "$APP_NAME" >/dev/null 2>&1; then
+            echo "Creating Heroku app: $APP_NAME"
+            heroku create "$APP_NAME" --stack heroku-24
+            heroku buildpacks:set heroku/nodejs -a "$APP_NAME"
+          fi
+          heroku git:remote -a "$APP_NAME"
           git push heroku HEAD:main --force
+          echo "Deployed: https://${APP_NAME}.herokuapp.com"
