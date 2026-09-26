@@ -204,6 +204,7 @@ this. It is a derived view; the raw log (D11) remains the source of truth.
   question is discarded (not counted, not logged); a new question is drawn on resume. Discard restores selection state
   exactly as if the question was never shown: counters, last-3 list (the discarded fact is removed), and any consumed
   queue item with its original due index; RNG streams stay advanced (lead ruling after T5 review).
+  A miss reveal already on screen survives hide/resume (the question has ended; the reveal is feedback) — lead ruling after T7 review.
 - Answer latency tracked per attempt, never used in records.
 - **Key:** `skillId + levelId + mode + rulesVersion`.
 - **Eligible:** run completed and accuracy ≥ `recordMinAccuracy` (90%) over **all regular (source draw) answers in the
@@ -324,6 +325,9 @@ change must pass it (D12) before it reaches DECISIONS.
   only (a) immediately after v1 → v2 conversion (`evidenceStale`), or (b) if rules change later, over whatever retained
   history exists plus future play. Historical recomputation is **best-effort**: evicted raw history cannot be
   reconstructed. No evidence-checkpoint system in V2.
+  Clarification (lead, after T7 review): if `evidenceStale` is set **and** the raw log was salvaged, the caches were
+  never computed, so rebuilding from the salvaged log can only add evidence — rebuild, clear the flag, and surface a
+  notice. Clearing the flag without rebuilding would silently drop v1-derived evidence (violates the invariant).
 - **Persistence invariant (owner):** a persistence failure must never silently alter or roll back mastery, XP, badges,
   records, or unlocked/completed levels. Every such outcome is surfaced through `lastLoad()` / `SaveResult` and the
   app must show a visible notice (T7/T8).
