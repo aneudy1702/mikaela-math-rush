@@ -9,16 +9,13 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "start": "serve -s dist -l tcp://0.0.0.0:$PORT",
-    "heroku-postbuild": "vite build"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.1.1",
     "framer-motion": "^13.4.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "serve": "^14.2.6",
     "typescript": "^7.0.2",
     "vite": "^8.3.1"
   },

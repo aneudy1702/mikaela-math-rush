@@ -4,7 +4,7 @@ Phone-friendly multiplication fluency arcade for Mikaela. Dark neon sporty UI, a
 
 ## Stack
 
-Vite + React + TypeScript · Framer Motion · sample SFX + loop music · PWA (Add to Home Screen) · localStorage learner profile · Heroku
+Vite + React + TypeScript · Framer Motion · sample SFX + loop music · PWA (Add to Home Screen) · localStorage learner profile · Vercel
 
 ## Run locally
 
@@ -22,26 +22,21 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 | `npm run dev` | Dev server on port **43127** |
 | `npm test` | Vitest unit tests (engine) |
 | `npm run build` | Production build |
-| `npm start` | Serve `dist` (used on Heroku) |
 
-## Deploy (Heroku)
+## Deploy (Vercel)
 
-GitHub Actions deploys `main` to Heroku. Add this repo secret:
+GitHub Actions (`.github/workflows/deploy.yml`) runs tests, then deploys to Vercel project `temporary-sonic-sequoia-hdx3l6n`:
+
+- push to `main` → production: https://temporary-sonic-sequoia-hdx3l6n.vercel.app
+- pull request → preview deployment
+
+Required repo secret:
 
 | Secret | Value |
 | --- | --- |
-| `HEROKU_API_KEY` | Account → Account settings → API Key |
+| `VERCEL_TOKEN` | https://vercel.com/account/tokens (scope: aneudy-abreus-projects) |
 
-Optional: `HEROKU_APP_NAME` (defaults to `mikaela-math-rush`). The workflow creates the app on first deploy if it does not exist.
-
-```bash
-# One-time local deploy (optional)
-heroku create mikaela-math-rush
-heroku buildpacks:set heroku/nodejs
-git push heroku main
-```
-
-Live URL once deployed: `https://mikaela-math-rush.herokuapp.com`
+Build settings live in `vercel.json`. Manual deploy: `vercel deploy --scope aneudy-abreus-projects` (add `--prod` for production).
 
 ## Play (V1)
 

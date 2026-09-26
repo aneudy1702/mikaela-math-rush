@@ -8,9 +8,11 @@ description: Deploy Mikaela Math Rush to Vercel (preview by default, production 
 Target: team `aneudy-abreus-projects`, project `temporary-sonic-sequoia-hdx3l6n`
 (prod URL: https://temporary-sonic-sequoia-hdx3l6n.vercel.app).
 
-The git remote is a Cursor origin, not GitHub, so there is no Git integration —
-deploys go through the Vercel CLI from this directory. Build settings live in
-`vercel.json` (Vite, `npm run build`, output `dist`); don't rely on dashboard settings.
+Normal path: GitHub Actions (`.github/workflows/deploy.yml`) deploys pushes to
+`main` to production and PRs to preview, using the `VERCEL_TOKEN` repo secret. To
+check an Actions deploy: `gh run list --workflow deploy.yml` / `gh run view <id> --log-failed`.
+Use the CLI steps below for manual deploys. Build settings live in `vercel.json`
+(Vite, `npm run build`, output `dist`); don't rely on dashboard settings.
 
 ## Auth
 
