@@ -13,6 +13,8 @@ import type { LearnerProfile, PersonalRecord, RawAttempt, SessionRecord } from '
 import { createEmptyProfile } from '../learning'
 import {
   LEGACY_V1_STORAGE_KEY,
+  MAX_PENDING_NOTICES,
+  PENDING_NOTICES_KEY,
   PERSISTENCE_NOTICE_MESSAGES,
   PROFILE_STORAGE_KEY,
   QUARANTINE_KEY_PREFIX,
@@ -31,16 +33,26 @@ class TestStorage extends FakeStorage {
   limit = Infinity
   quotaKeys: (key: string) => boolean = () => false
   errorKeys: (key: string) => boolean = () => false
+  /** Every access throws (e.g. localStorage blocked by browser settings). */
+  blocked = false
   used(except?: string): number {
     let n = 0
     for (let i = 0; i < this.length; i++) {
       const k = this.key(i)!
-      if (k !== except) n += k.length + this.getItem(k)!.length
+      if (k !== except) n += k.length + super.getItem(k)!.length
     }
     return n
   }
+  override getItem(key: string): string | null {
+    if (this.blocked) throw new DOMException('denied', 'SecurityError')
+    return super.getItem(key)
+  }
+  override removeItem(key: string): void {
+    if (this.blocked) throw new DOMException('denied', 'SecurityError')
+    super.removeItem(key)
+  }
   override setItem(key: string, value: string): void {
-    if (this.errorKeys(key)) throw new Error('SecurityError')
+    if (this.blocked || this.errorKeys(key)) throw new Error('SecurityError')
     if (this.quotaKeys(key) || this.used(key) + key.length + value.length > this.limit) {
       throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
     }
@@ -124,7 +136,8 @@ function withDamagedLog(p: LearnerProfile, mutate: (o: Record<string, unknown>) 
 }
 
 interface Setup {
-  storage: TestStorage
+  /** null = no storage at all (`createLocalStorageStore(null)`). */
+  storage: TestStorage | null
   /** Called after load, before save (e.g. to make storage fail). */
   beforeSave?: (s: TestStorage) => void
 }
@@ -312,7 +325,74 @@ const ROWS: Row[] = [
     save: { status: 'failed', reason: 'error' },
     savePersisted: false,
   },
+  {
+    name: 'v1 corrupt, no v2',
+    setup: () => {
+      const storage = new TestStorage()
+      storage.setItem(LEGACY_V1_STORAGE_KEY, '{"version":1,"learnerName":')
+      return { storage }
+    },
+    loadNotice: 'unreadable-v1-save',
+    loadPreserved: false,
+    save: { status: 'saved' },
+    savePersisted: true,
+  },
+  {
+    name: 'v1 unmigratable (valid JSON, wrong shape), no v2',
+    setup: () => {
+      const storage = new TestStorage()
+      storage.setItem(LEGACY_V1_STORAGE_KEY, JSON.stringify({ version: 1, facts: 'nope' }))
+      return { storage }
+    },
+    loadNotice: 'unreadable-v1-save',
+    loadPreserved: false,
+    save: { status: 'saved' },
+    savePersisted: true,
+  },
+  {
+    name: 'unreadable v2, backup blocked, no v1',
+    setup: () => {
+      const storage = new TestStorage()
+      storage.setItem(PROFILE_STORAGE_KEY, '{"version":2,"learnerName":"Mik')
+      storage.quotaKeys = (k) => k.startsWith(QUARANTINE_KEY_PREFIX)
+      return { storage }
+    },
+    loadNotice: 'unreadable-save-not-backed-up',
+    loadPreserved: false,
+    save: { status: 'saved', notice: 'unreadable-save-not-backed-up' },
+    savePersisted: true,
+  },
+  {
+    name: 'storage unavailable (no storage)',
+    setup: () => ({ storage: null }),
+    loadNotice: 'storage-unavailable',
+    loadPreserved: false,
+    save: { status: 'failed', reason: 'storage-unavailable' },
+    savePersisted: false,
+  },
+  {
+    name: 'storage unavailable (access throws)',
+    setup: (S) => {
+      const storage = new TestStorage()
+      storage.setItem(PROFILE_STORAGE_KEY, serializeProfile(S))
+      storage.blocked = true
+      return { storage }
+    },
+    loadNotice: 'storage-unavailable',
+    loadPreserved: false,
+    save: { status: 'failed', reason: 'storage-unavailable' },
+    savePersisted: false,
+  },
 ]
+
+/** Notices that must survive a reload until acknowledged (written to storage). */
+const PERSISTED: ReadonlySet<PersistenceNotice | undefined> = new Set<PersistenceNotice | undefined>([
+  'damaged-history-backed-up',
+  'damaged-history-not-backed-up',
+  'unreadable-save-backed-up',
+  'unreadable-save-not-backed-up',
+  'unreadable-v1-save',
+])
 
 function isSurfaced(r: SaveResult): boolean {
   return r.status !== 'saved' || r.notice !== undefined
@@ -322,7 +402,16 @@ describe('D11 persistence invariant matrix (T0.3)', () => {
   it.each(ROWS.map((r) => [r.name, r] as const))('%s', (_name, row) => {
     const S = storedState()
     const { storage, beforeSave } = row.setup(S)
-    const blobBefore = storage.getItem(PROFILE_STORAGE_KEY)
+    const rawGet = (k: string): string | null => {
+      if (!storage) return null
+      const b = storage.blocked
+      storage.blocked = false
+      const v = storage.getItem(k)
+      storage.blocked = b
+      return v
+    }
+    const blobBefore = rawGet(PROFILE_STORAGE_KEY)
+    const v1Before = rawGet(LEGACY_V1_STORAGE_KEY)
     const store = createLocalStorageStore(storage, { now: () => T })
 
     // ---- load ----
@@ -336,33 +425,59 @@ describe('D11 persistence invariant matrix (T0.3)', () => {
     expect(loadPreserved || outcome.notice !== undefined).toBe(true)
     if (outcome.notice) expect(PERSISTENCE_NOTICE_MESSAGES[outcome.notice]).toBeTruthy()
     if (outcome.quarantine) expect(outcome.notice).toBeDefined()
+    expect(outcome.pendingNotices!.map((n) => n.notice)).toEqual(
+      row.loadNotice ? [row.loadNotice] : [],
+    )
 
     // ---- save (the app's next state: a little more progress) ----
-    beforeSave?.(storage)
+    if (storage) beforeSave?.(storage)
     const toSave = structuredClone(loaded)
     toSave.player.xp += 7
     let saved!: SaveResult
     expect(() => (saved = store.save(toSave))).not.toThrow()
     expect(saved).toMatchObject(row.save)
     if (!row.save.notice) expect((saved as { notice?: unknown }).notice).toBeUndefined()
+    if (saved.status === 'failed') expect(store.lastSaveError()).toEqual(saved)
+    // The notice stays readable after the fact.
+    expect(store.lastSaveNotice()).toBe(row.save.notice ?? null)
+    expect(store.lastLoad()!.notice).toBe(row.loadNotice)
+    // The v1 key is never written or deleted.
+    expect(rawGet(LEGACY_V1_STORAGE_KEY)).toBe(v1Before)
 
-    // ---- reload from storage ----
+    if (!storage) return // nothing can persist; the failed save is the surfaced outcome
+
+    // ---- reload from storage (a new app start) ----
     storage.limit = Infinity
     storage.quotaKeys = () => false
     storage.errorKeys = () => false
+    storage.blocked = false
     const after = loadProfileFromStorage(storage, T)
     const persisted = !after.readOnly && guarded(after.profile) === guarded(toSave)
     expect(persisted).toBe(row.savePersisted)
     // Invariant: what was handed to save is what storage now holds, or the save surfaced.
     expect(persisted || isSurfaced(saved)).toBe(true)
-    if (saved.status === 'failed') {
-      // A failed save never replaces the stored blob (no partial overwrite / rollback).
-      expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blobBefore)
-      expect(store.lastSaveError()).toEqual(saved)
+    // A failed save never replaces the stored blob (no partial overwrite / rollback).
+    if (saved.status === 'failed') expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blobBefore)
+
+    // Reload after a notice: it is still shown (even though the bad data is gone) until
+    // acknowledged; notices that never touch storage are not persisted.
+    const reloadStore = createLocalStorageStore(storage, { now: () => T + 1 })
+    reloadStore.load()
+    const expectPending = PERSISTED.has(row.loadNotice) ? [row.loadNotice] : []
+    expect(reloadStore.lastLoad()!.pendingNotices!.map((n) => n.notice)).toEqual(
+      row.loadNotice === 'newer-version-read-only' ? ['newer-version-read-only'] : expectPending,
+    )
+    if (expectPending.length) {
+      expect(reloadStore.lastLoad()!.pendingNotices![0]!.atMs).toBe(T)
+      expect(reloadStore.acknowledgeNotices()).toBe(true)
+      expect(reloadStore.pendingNotices()).toEqual([])
+      const third = createLocalStorageStore(storage)
+      third.load()
+      expect(third.lastLoad()!.pendingNotices).toEqual([])
     }
-    // The notice stays readable after the fact.
-    expect(store.lastSaveNotice()).toBe(row.save.notice ?? null)
-    expect(store.lastLoad()!.notice).toBe(row.loadNotice)
+    if (row.loadNotice === 'newer-version-read-only') {
+      expect(storage.getItem(PENDING_NOTICES_KEY)).toBeNull()
+    }
   })
 
   it('a stored raw-log-damaged blob is never overwritten before its fragment backup is attempted', () => {
@@ -379,6 +494,52 @@ describe('D11 persistence invariant matrix (T0.3)', () => {
     const store = createLocalStorageStore(storage, { now: () => T })
     // save without load: guard still backs up first
     expect(store.save(S)).toEqual({ status: 'saved' })
-    expect(order).toEqual(['backup', PROFILE_STORAGE_KEY])
+    // Backup, then the pending notice, then (only then) the overwrite.
+    expect(order).toEqual(['backup', PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
+  })
+
+  it('a failing pending-notice write keeps the notice in memory and never blocks saving', () => {
+    const storage = new TestStorage()
+    storage.setItem(LEGACY_V1_STORAGE_KEY, v1())
+    storage.setItem(PROFILE_STORAGE_KEY, '{broken')
+    storage.errorKeys = (k) => k === PENDING_NOTICES_KEY
+    const store = createLocalStorageStore(storage, { now: () => T })
+    const p = store.load()
+    expect(store.lastLoad()!.pendingNotices).toEqual([
+      { notice: 'unreadable-save-backed-up', atMs: T },
+    ])
+    expect(store.save(p)).toEqual({ status: 'saved' })
+    expect(store.pendingNotices()).toEqual([{ notice: 'unreadable-save-backed-up', atMs: T }])
+    expect(storage.getItem(PENDING_NOTICES_KEY)).toBeNull()
+  })
+
+  it('pending notices dedupe by kind, are capped, and tolerate a corrupt record', () => {
+    const storage = new TestStorage()
+    storage.setItem(PENDING_NOTICES_KEY, '{not an array')
+    storage.setItem(LEGACY_V1_STORAGE_KEY, '{bad')
+    for (let i = 0; i < 3; i++) createLocalStorageStore(storage, { now: () => T + i }).load()
+    expect(JSON.parse(storage.getItem(PENDING_NOTICES_KEY)!)).toEqual([
+      { notice: 'unreadable-v1-save', atMs: T },
+    ])
+    const many = Array.from({ length: 30 }, (_, i) => ({ notice: 'x', atMs: i }))
+    storage.setItem(PENDING_NOTICES_KEY, JSON.stringify(many))
+    const s = createLocalStorageStore(storage, { now: () => T })
+    s.load()
+    expect(s.lastLoad()!.pendingNotices!.length).toBeLessThanOrEqual(MAX_PENDING_NOTICES)
+  })
+
+  it('newer-version read-only mode never writes the pending-notice key, even on acknowledge', () => {
+    const storage = new TestStorage()
+    storage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ ...storedState(), version: 3 }))
+    storage.setItem(PENDING_NOTICES_KEY, JSON.stringify([{ notice: 'unreadable-v1-save', atMs: 1 }]))
+    const before = storage.getItem(PENDING_NOTICES_KEY)
+    const store = createLocalStorageStore(storage, { now: () => T })
+    store.load()
+    expect(store.pendingNotices().map((n) => n.notice)).toEqual([
+      'unreadable-v1-save',
+      'newer-version-read-only',
+    ])
+    store.acknowledgeNotices()
+    expect(storage.getItem(PENDING_NOTICES_KEY)).toBe(before)
   })
 })

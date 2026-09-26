@@ -32,6 +32,13 @@ export const LEGACY_V1_STORAGE_KEY = 'mikaela-math-rush:learner-v1'
 export const QUARANTINE_KEY_PREFIX = 'mikaela-math-rush:learner-v2-quarantine-'
 /** Most quarantine backups kept; the oldest is rotated out only after a newer one is written. */
 export const MAX_QUARANTINE_BACKUPS = 2
+/**
+ * Persisted pending notices (T0.3 hardening): a JSON array of `PendingNotice`, capped at
+ * `MAX_PENDING_NOTICES`. Written the moment a notice is produced (before any overwrite of
+ * the data it is about) so it survives a reload until `acknowledgeNotices()`. Never written
+ * in newer-version read-only mode or when storage is unavailable.
+ */
+export const PENDING_NOTICES_KEY = 'mikaela-math-rush:pending-notices'
 
 /** `type` tag of a raw-log fragment backup (T0.3). */
 export const RAW_LOG_FRAGMENT_TYPE = 'raw-log-fragment'
@@ -80,14 +87,28 @@ export type ProfileLoadSource = 'v2' | 'v1-migrated' | 'fresh'
  *   profile came from the V1 save (`source 'v1-migrated'`) or is fresh.
  * - `unreadable-save-not-backed-up`: saved progress could not be read and could not be
  *   backed up; the fallback profile is used and the next save overwrites the unreadable data.
+ * - `unreadable-v1-save`: no V2 save, and the V1 save exists but could not be read or
+ *   migrated; a fresh profile is used. The V1 key is never written or deleted (it stays as
+ *   its own backup), but once a V2 save exists V1 is no longer migrated.
  * - `newer-version-read-only`: the save is from a newer app; nothing is written here.
+ * - `storage-unavailable`: storage is missing or cannot be read; a fresh profile is used
+ *   and progress will not be kept (every save returns `failed: storage-unavailable`).
  */
 export type PersistenceNotice =
   | 'damaged-history-backed-up'
   | 'damaged-history-not-backed-up'
   | 'unreadable-save-backed-up'
   | 'unreadable-save-not-backed-up'
+  | 'unreadable-v1-save'
   | 'newer-version-read-only'
+  | 'storage-unavailable'
+
+/** A notice persisted under `PENDING_NOTICES_KEY` until acknowledged. */
+export interface PendingNotice {
+  notice: PersistenceNotice
+  /** When it was first produced (store clock). */
+  atMs: number
+}
 
 /** Notices a successful save can carry: the save overwrote data that has no backup. */
 export type SaveNotice = Extract<
@@ -105,8 +126,12 @@ export const PERSISTENCE_NOTICE_MESSAGES: Readonly<Record<PersistenceNotice, str
     'Saved progress could not be read. A backup was kept; you are starting from an older save or a new profile.',
   'unreadable-save-not-backed-up':
     'Saved progress could not be read and could not be backed up. You are starting from an older save or a new profile.',
+  'unreadable-v1-save':
+    'Saved progress from the previous version of the app could not be read. You are starting with a new profile.',
   'newer-version-read-only':
     'This save is from a newer version of the app. Progress will not be saved here.',
+  'storage-unavailable':
+    'This browser is not letting the app save. Progress will not be kept after you close it.',
 }
 
 /**
@@ -147,9 +172,13 @@ export interface ProfileQuarantine {
 
 /**
  * UI OBLIGATIONS (T7/T8) — the app must visibly tell the learner/parent when:
- * - `notice` is set (always set together with `quarantine`; see `PersistenceNotice`).
- *   In particular a `fresh` or `v1-migrated` profile that carries `unreadable-save-*`
- *   must never be presented as a normal load ("saved progress could not be read").
+ * - `notice` is set (always set together with `quarantine`; also for `unreadable-v1-save`
+ *   and `storage-unavailable`; see `PersistenceNotice`). In particular a `fresh` or
+ *   `v1-migrated` profile that carries a notice must never be presented as a normal load
+ *   ("saved progress could not be read").
+ * - `pendingNotices` is non-empty: notices produced by this or an earlier load/save that
+ *   nobody has acknowledged yet (they survive reloads). T8 shows them and calls
+ *   `store.acknowledgeNotices()` once the learner/parent has seen them.
  * - `readOnly` is true (newer build's save: progress will not be saved here).
  * - `quarantine.evidenceStaleWithDamagedLog` is set (T7 decides about evidence rebuild).
  */
@@ -167,14 +196,21 @@ export interface ProfileLoadResult {
    * reports the actual result.
    */
   notice?: PersistenceNotice
+  /**
+   * Unacknowledged notices, oldest first (T0.3 hardening). From the pure loader: what is
+   * persisted under `PENDING_NOTICES_KEY`. From the store's load(): that list plus this
+   * load's notice (kept in memory when it could not be persisted, e.g. read-only or
+   * storage unavailable). Always an array; empty when there is nothing to show.
+   */
+  pendingNotices?: PendingNotice[]
 }
 
 /**
  * Result of a save; failures never throw into the UI (T0.1).
  *
  * UI OBLIGATIONS (T7/T8) — silent handling is not allowed:
- * - `failed` (reason `newer-version`, `quota`, `error`): the learner's progress is NOT
- *   being saved; show it.
+ * - `failed` (reason `newer-version`, `quota`, `storage-unavailable`, `error`): the
+ *   learner's progress is NOT being saved; show it.
  * - `saved-trimmed`: saved, but the oldest raw answer history was dropped for space
  *   (progress, evidence, XP, badges, records and levels are written in full); show it.
  * - `notice` on `saved`/`saved-trimmed` (T0.3): this save overwrote damaged or unreadable
@@ -194,12 +230,14 @@ export type SaveResult =
       /**
        * `quota`: storage full even with an empty raw log (the previous save is kept).
        * `newer-version`: the stored blob was written by a newer build and is never
-       * overwritten by this one. `error`: any other storage/serialization error.
+       * overwritten by this one. `storage-unavailable`: there is no usable storage (none,
+       * or reading it threw at load), so nothing is written. `error`: any other
+       * storage/serialization error.
        * `backup-required`: no longer produced (T0.3 — a damaged or unreadable blob whose
        * backup cannot be written no longer blocks saving; the save proceeds with a
        * `notice`). Kept in the union for compatibility.
        */
-      reason: 'quota' | 'backup-required' | 'newer-version' | 'error'
+      reason: 'quota' | 'backup-required' | 'newer-version' | 'storage-unavailable' | 'error'
       error?: unknown
     }
 
@@ -216,6 +254,17 @@ export interface LocalProfileStore extends ProfileStore {
    * clear it), so the app can show it even if it missed that SaveResult.
    */
   lastSaveNotice(): SaveNotice | null
+  /**
+   * T0.3 hardening: the unacknowledged notices (persisted + in-memory), oldest first.
+   * Same list as `lastLoad().pendingNotices`, kept current as saves add notices.
+   */
+  pendingNotices(): PendingNotice[]
+  /**
+   * Clear the pending notices after the learner/parent has seen them (T8). Removes
+   * `PENDING_NOTICES_KEY` (not in read-only / storage-unavailable mode, which never touch
+   * storage) and the in-memory list. Never throws; returns false if removal failed.
+   */
+  acknowledgeNotices(): boolean
 }
 
 export interface LocalStoreOptions {
@@ -333,17 +382,37 @@ function safeGet(storage: Storage, key: string): string | null {
  *   player): falls through to V1 migration / fresh with `quarantine` set.
  * - V2 key holds a newer version (> 2): a fresh placeholder with `readOnly: true` and
  *   `quarantine.kind 'newer-version'`; V1 is not migrated and nothing may be written.
+ * - No usable V2 blob and the V1 blob exists but cannot be migrated: fresh with notice
+ *   `unreadable-v1-save` (the V1 key is never written or deleted; it is its own backup).
+ * - Storage missing or throwing on read: fresh with notice `storage-unavailable` (the
+ *   store then refuses every write so an unread save is never overwritten).
  * Every quarantine comes with a `notice`. Never writes, so a damaged/unreadable blob reports
  * the `*-not-backed-up` notice; the store's load() backs up and reports the real outcome.
+ * `pendingNotices` are read from `PENDING_NOTICES_KEY` (read-only here).
  */
 export function loadProfileFromStorage(
   storage: Storage | null,
   nowMs: number = Date.now(),
 ): ProfileLoadResult {
-  if (!storage) return { profile: createEmptyProfile(), source: 'fresh' }
+  const unavailable = (): ProfileLoadResult => ({
+    profile: createEmptyProfile(),
+    source: 'fresh',
+    notice: 'storage-unavailable',
+    pendingNotices: [],
+  })
+  if (!storage) return unavailable()
+  let v2: string | null
+  try {
+    v2 = storage.getItem(PROFILE_STORAGE_KEY)
+  } catch {
+    return unavailable()
+  }
+  const pendingNotices = readPendingNotices(storage)
+  return { ...loadFrom(storage, v2, nowMs), pendingNotices }
+}
 
+function loadFrom(storage: Storage, v2: string | null, nowMs: number): ProfileLoadResult {
   let quarantine: ProfileQuarantine | undefined
-  const v2 = safeGet(storage, PROFILE_STORAGE_KEY)
   if (v2) {
     const r = parseStoredProfile(v2)
     if (r.kind === 'ok') return { profile: r.profile, source: 'v2' }
@@ -402,9 +471,42 @@ export function loadProfileFromStorage(
     } catch {
       // fall through to fresh
     }
+    // V1 present but unusable. An unreadable V2 notice already says progress could not
+    // be read; otherwise report the V1 failure itself (never a silent fresh start).
+    if (!quarantine) {
+      return { profile: createEmptyProfile(), source: 'fresh', notice: 'unreadable-v1-save' }
+    }
   }
 
   return { profile: createEmptyProfile(), source: 'fresh', ...q }
+}
+
+/** Pending notices kept (newest win when over the cap). */
+export const MAX_PENDING_NOTICES = 10
+
+/** Parse the pending-notice record; anything malformed reads as empty. Never throws. */
+export function readPendingNotices(storage: Storage | null): PendingNotice[] {
+  if (!storage) return []
+  const raw = safeGet(storage, PENDING_NOTICES_KEY)
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (n): n is PendingNotice =>
+        isObject(n) &&
+        typeof n.notice === 'string' &&
+        n.notice in PERSISTENCE_NOTICE_MESSAGES &&
+        typeof n.atMs === 'number',
+    )
+  } catch {
+    return []
+  }
+}
+
+/** Notices that are never written to the pending-notice key. */
+function isPersistableNotice(n: PersistenceNotice): boolean {
+  return n !== 'newer-version-read-only' && n !== 'storage-unavailable'
 }
 
 function defaultStorage(): Storage | null {
@@ -590,6 +692,12 @@ function writeProfile(storage: Storage, profile: LearnerProfile): SaveResult {
  *   returns `failed: newer-version` and the blob stays byte-identical;
  * - evidence is never rebuilt here and `evidenceStale` / evidence caches are never changed,
  *   neither on raw-log salvage nor on quota-driven raw-log eviction;
+ * - every notice is also persisted under `PENDING_NOTICES_KEY` the moment it is produced
+ *   (before the data it is about is overwritten) and surfaced on every load until
+ *   `acknowledgeNotices()`; if that write fails the notice is kept in memory and saving
+ *   is not blocked. Read-only and storage-unavailable modes never write it;
+ * - no storage (or storage that throws on read): every save()/clear() returns
+ *   `failed: storage-unavailable` and load() reports notice `storage-unavailable`;
  * - save()/clear() never throw; failures are returned, reported to `onSaveResult`
  *   and kept in `lastSaveError()`.
  */
@@ -605,8 +713,12 @@ export function createLocalStorageStore(
   let guarded = false
   /** The V2 key holds a newer build's blob: every write is refused for this store's life. */
   let readOnly = false
+  /** No usable storage: every write is refused (an unread save must never be overwritten). */
+  let unavailable = storage === null
   /** The V2 key holds rejected data with no backup: reported by the save that overwrites it. */
   let pendingNotice: SaveNotice | null = null
+  /** Unacknowledged notices (persisted ones plus any that could not be persisted). */
+  let pending: PendingNotice[] = []
 
   function noteUnbacked(notice: PersistenceNotice): void {
     if (notice === 'damaged-history-not-backed-up' || notice === 'unreadable-save-not-backed-up') {
@@ -614,21 +726,52 @@ export function createLocalStorageStore(
     }
   }
 
+  function mergeNotices(a: PendingNotice[], b: PendingNotice[]): PendingNotice[] {
+    const out: PendingNotice[] = []
+    for (const n of [...a, ...b]) if (!out.some((o) => o.notice === n.notice)) out.push(n)
+    return out.slice(-MAX_PENDING_NOTICES)
+  }
+
+  /** Record a notice: in memory always, persisted when allowed. Never throws or blocks. */
+  function produce(notice: PersistenceNotice): void {
+    const entry: PendingNotice = { notice, atMs: now() }
+    pending = mergeNotices(pending, [entry])
+    if (!storage || readOnly || unavailable || !isPersistableNotice(notice)) return
+    try {
+      const next = mergeNotices(readPendingNotices(storage), [entry])
+      storage.setItem(PENDING_NOTICES_KEY, JSON.stringify(next))
+    } catch {
+      // kept in memory; a failed notice write never blocks saving
+    }
+  }
+
   /**
    * Before the first overwrite (when load() did not run): back up whatever
    * damaged/unreadable blob sits at the V2 key. Only a newer-version blob refuses the write.
    */
-  function guardBeforeOverwrite(s: Storage): 'newer-version' | null {
+  function guardBeforeOverwrite(s: Storage): 'newer-version' | 'storage-unavailable' | null {
     if (readOnly) return 'newer-version'
+    if (unavailable) return 'storage-unavailable'
     if (guarded) return null
-    const current = safeGet(s, PROFILE_STORAGE_KEY)
+    let current: string | null
+    try {
+      current = s.getItem(PROFILE_STORAGE_KEY)
+    } catch {
+      unavailable = true
+      produce('storage-unavailable')
+      return 'storage-unavailable'
+    }
     if (current) {
       const kind = parseStoredProfile(current).kind
       if (kind === 'newer-version') {
         readOnly = true
         return 'newer-version'
       }
-      if (kind !== 'ok') noteUnbacked(noticeFor(kind, backupRejected(s, current, kind, now())))
+      if (kind !== 'ok') {
+        const notice = noticeFor(kind, backupRejected(s, current, kind, now()))
+        produce(notice)
+        noteUnbacked(notice)
+      }
     }
     guarded = true
     return null
@@ -636,13 +779,11 @@ export function createLocalStorageStore(
 
   function write(profile: LearnerProfile): SaveResult {
     let result: SaveResult
-    const refused = storage ? guardBeforeOverwrite(storage) : null
-    if (!storage) {
-      result = { status: 'saved' }
-    } else if (refused) {
+    const refused = storage ? guardBeforeOverwrite(storage) : 'storage-unavailable'
+    if (refused) {
       result = { status: 'failed', reason: refused }
     } else {
-      result = writeProfile(storage, profile)
+      result = writeProfile(storage!, profile)
       if (result.status !== 'failed' && pendingNotice) {
         result = { ...result, notice: pendingNotice }
         lastNotice = pendingNotice
@@ -662,7 +803,10 @@ export function createLocalStorageStore(
     load(): LearnerProfile {
       try {
         let result = loadProfileFromStorage(storage, now())
-        if (result.readOnly) {
+        pending = mergeNotices(result.pendingNotices ?? [], pending)
+        if (result.notice === 'storage-unavailable') {
+          unavailable = true
+        } else if (result.readOnly) {
           // Newer build's save: never backed up, migrated or overwritten.
           readOnly = true
         } else if (storage) {
@@ -674,6 +818,9 @@ export function createLocalStorageStore(
           }
           guarded = true
         }
+        // Persist before any save can overwrite the data the notice is about.
+        if (result.notice) produce(result.notice)
+        result = { ...result, pendingNotices: [...pending] }
         lastLoad = result
         return result.profile
       } catch {
@@ -690,6 +837,17 @@ export function createLocalStorageStore(
     lastSaveError: () => lastError,
     lastLoad: () => lastLoad,
     lastSaveNotice: () => lastNotice,
+    pendingNotices: () => [...pending],
+    acknowledgeNotices(): boolean {
+      pending = []
+      if (!storage || readOnly || unavailable) return true
+      try {
+        storage.removeItem(PENDING_NOTICES_KEY)
+        return true
+      } catch {
+        return false
+      }
+    },
   }
 }
 

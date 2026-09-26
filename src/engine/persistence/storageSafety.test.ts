@@ -15,6 +15,7 @@ import { salvageRawLog } from './rawLog'
 import {
   LEGACY_V1_STORAGE_KEY,
   MAX_QUARANTINE_BACKUPS,
+  PENDING_NOTICES_KEY,
   PROFILE_STORAGE_KEY,
   QUARANTINE_KEY_PREFIX,
   RAW_LOG_FRAGMENT_TYPE,
@@ -180,10 +181,10 @@ describe('damaged raw log is quarantined, not a rollback', () => {
       rawLog: (JSON.parse(blob) as { rawLog: unknown }).rawLog,
     })
     expect(fragment.length).toBeLessThan(blob.length)
-    expect(storage.writes).toEqual([backups[0]])
+    expect(storage.writes).toEqual([backups[0], PENDING_NOTICES_KEY])
 
     expect(store.save(loaded)).toEqual({ status: 'saved' })
-    expect(storage.writes).toEqual([backups[0], PROFILE_STORAGE_KEY])
+    expect(storage.writes).toEqual([backups[0], PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
     expect(storage.getItem(backups[0]!)).toBe(fragment)
     expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
 
@@ -274,11 +275,11 @@ describe('wholly unreadable v2 blob', () => {
     const [backup] = listQuarantineBackups(storage)
     expect(storage.getItem(backup!)).toBe(blob)
     // Load writes only the backup; the damaged blob itself is still in place.
-    expect(storage.writes).toEqual([backup])
+    expect(storage.writes).toEqual([backup, PENDING_NOTICES_KEY])
     expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blob)
 
     expect(store.save(profile).status).toBe('saved')
-    expect(storage.writes).toEqual([backup, PROFILE_STORAGE_KEY])
+    expect(storage.writes).toEqual([backup, PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
     expect(storage.getItem(backup!)).toBe(blob)
     expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
   })
@@ -289,7 +290,7 @@ describe('wholly unreadable v2 blob', () => {
     storage.writes = []
     const store = createLocalStorageStore(storage, { now: () => T })
     expect(store.save(createEmptyProfile()).status).toBe('saved')
-    expect(storage.writes).toEqual([`${QUARANTINE_KEY_PREFIX}${T}`, PROFILE_STORAGE_KEY])
+    expect(storage.writes).toEqual([`${QUARANTINE_KEY_PREFIX}${T}`, PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
     expect(storage.getItem(`${QUARANTINE_KEY_PREFIX}${T}`)).toBe('{broken')
   })
 
