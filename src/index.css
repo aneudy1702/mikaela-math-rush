@@ -1917,8 +1917,9 @@ button:focus-visible,
   }
 
   .home-lead {
-    max-width: 190px;
-    font-size: 0.78rem;
+    max-width: 15rem;
+    font-size: 0.82rem;
+    line-height: 1.25;
   }
 
   .home-prompt,
@@ -1977,19 +1978,39 @@ button:focus-visible,
   }
 
   .play {
-    gap: 8px;
+    gap: 6px;
+    min-height: 0;
+  }
+
+  .play-runner {
+    width: 64px;
   }
 
   .play .fact-progress.compact {
-    max-height: 50px;
+    max-height: none;
+    padding-bottom: 2px;
   }
 
   .prompt-stage {
-    min-height: 210px;
+    min-height: 0;
+    flex: 0 1 auto;
+  }
+
+  .problem-card {
+    padding: 10px 16px 8px;
+  }
+
+  .problem-card .answer-draft {
+    min-height: 44px;
+    margin-top: 8px;
+  }
+
+  .keypad {
+    gap: 8px;
   }
 
   .key {
-    min-height: 60px;
+    min-height: 52px;
   }
 
   .results-hero {

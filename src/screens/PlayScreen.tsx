@@ -3,6 +3,10 @@ import { motion } from 'framer-motion'
 import { gameAssets } from '../assets'
 import { FactProgress } from '../components/FactProgress'
 import { Keypad } from '../components/Keypad'
+import {
+  PersistenceBanner,
+  type PersistenceNoticeItem,
+} from '../components/PersistenceBanner'
 import type { LevelProgressFact, LevelSessionSnapshot } from '../engine'
 
 interface PlayScreenProps {
@@ -11,6 +15,8 @@ interface PlayScreenProps {
   levelProgress: readonly LevelProgressFact[]
   showRecordInfo: boolean
   bestTimeMs?: number
+  notices?: readonly PersistenceNoticeItem[]
+  onDismissNotice?: (id: string) => void
   persistenceWarning?: string | null
   onSubmit: (value: number) => void
   onDismissReveal: () => void
@@ -32,6 +38,8 @@ export function PlayScreen({
   levelProgress,
   showRecordInfo,
   bestTimeMs,
+  notices = [],
+  onDismissNotice,
   persistenceWarning,
   onSubmit,
   onDismissReveal,
@@ -60,11 +68,6 @@ export function PlayScreen({
     window.addEventListener('keydown', handleRevealKey)
     return () => window.removeEventListener('keydown', handleRevealKey)
   }, [onDismissReveal, reveal])
-
-  useEffect(() => {
-    setDraft('')
-    setLocked(false)
-  }, [question?.id])
 
   const sessionProgress = snapshot.total > 0 ? snapshot.answered / snapshot.total : 0
   const displayQuestion = Math.min(
@@ -118,6 +121,8 @@ export function PlayScreen({
           {muted ? '×' : '♪'}
         </button>
       </div>
+
+      <PersistenceBanner notices={notices} onDismiss={onDismissNotice} />
 
       {persistenceWarning ? (
         <div className="save-warning" role="status">

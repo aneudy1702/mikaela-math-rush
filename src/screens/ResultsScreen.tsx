@@ -2,6 +2,10 @@ import { motion } from 'framer-motion'
 import { gameAssets } from '../assets'
 import { FactProgress } from '../components/FactProgress'
 import {
+  PersistenceBanner,
+  type PersistenceNoticeItem,
+} from '../components/PersistenceBanner'
+import {
   getBadgeDefs,
   type LevelProgressFact,
   type SessionResultSummaryV2,
@@ -11,6 +15,8 @@ interface ResultsScreenProps {
   summary: SessionResultSummaryV2
   levelTitle: string
   levelProgress: readonly LevelProgressFact[]
+  notices?: readonly PersistenceNoticeItem[]
+  onDismissNotice?: (id: string) => void
   persistenceWarning?: string | null
   onAgain: () => void
   onHome: () => void
@@ -33,6 +39,8 @@ export function ResultsScreen({
   summary,
   levelTitle,
   levelProgress,
+  notices = [],
+  onDismissNotice,
   persistenceWarning,
   onAgain,
   onHome,
@@ -56,6 +64,8 @@ export function ResultsScreen({
 
   return (
     <section className={`results${levelCompleted ? ' victory' : ''}`}>
+      <PersistenceBanner notices={notices} onDismiss={onDismissNotice} />
+
       {persistenceWarning ? (
         <div className="save-warning" role="status">
           <strong>Progress is not being saved.</strong> {persistenceWarning}

@@ -377,4 +377,34 @@ describe('T8 app wiring and screens', () => {
     renderHarness(harness, inferenceRunner)
     expect(inferenceRunner).toHaveBeenCalledTimes(1)
   })
+
+  it('retries start-level inference when the recommended profile could not be saved', () => {
+    const harness = storedHarness(migratedProfile())
+    const recommend: StartLevelInference = {
+      outcome: 'recommend',
+      recommendedLevelId: 'L3',
+      verdicts: [],
+      attemptsConsidered: 12,
+      masteredFactIds: [],
+    }
+    const inferenceRunner = vi.fn(() => recommend)
+    const failingStore: LocalProfileStore = {
+      ...harness.store,
+      save: () => ({ status: 'failed', reason: 'quota' }),
+    }
+    const view = renderHarness({ ...harness, store: failingStore }, inferenceRunner)
+
+    expect(inferenceRunner).toHaveBeenCalledTimes(1)
+    expect(
+      screen.getByRole('heading', { name: 'We picked Level 3 for you' }),
+    ).toBeInTheDocument()
+    expect(harness.uiStorage.getItem(UI_PREFS_KEY)).toBeNull()
+
+    view.unmount()
+    harness.store = createLocalStorageStore(harness.profileStorage, {
+      now: () => NOW + 2,
+    })
+    renderHarness(harness, inferenceRunner)
+    expect(inferenceRunner).toHaveBeenCalledTimes(2)
+  })
 })
