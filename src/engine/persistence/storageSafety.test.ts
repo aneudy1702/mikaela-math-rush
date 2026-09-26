@@ -15,8 +15,11 @@ import { salvageRawLog } from './rawLog'
 import {
   LEGACY_V1_STORAGE_KEY,
   MAX_QUARANTINE_BACKUPS,
+  PENDING_NOTICES_KEY,
   PROFILE_STORAGE_KEY,
   QUARANTINE_KEY_PREFIX,
+  RAW_LOG_FRAGMENT_TYPE,
+  buildRawLogFragment,
   createLocalStorageStore,
   deserializeProfile,
   isQuotaExceededError,
@@ -166,15 +169,23 @@ describe('damaged raw log is quarantined, not a rollback', () => {
     )
     expect(loaded.rawLog.sessions).toEqual(profile.rawLog.sessions)
 
-    // Backup written at load, byte-identical, before any profile write.
+    // T0.3: only the damaged raw-log fragment is backed up, at load, before any profile write.
+    expect(store.lastLoad()!.notice).toBe('damaged-history-backed-up')
     const backups = listQuarantineBackups(storage)
     expect(backups).toEqual([`${QUARANTINE_KEY_PREFIX}${T}`])
-    expect(storage.getItem(backups[0]!)).toBe(blob)
-    expect(storage.writes).toEqual([backups[0]])
+    const fragment = storage.getItem(backups[0]!)!
+    expect(fragment).toBe(buildRawLogFragment(blob))
+    expect(JSON.parse(fragment)).toMatchObject({
+      type: RAW_LOG_FRAGMENT_TYPE,
+      learnerName: 'Mikaela',
+      rawLog: (JSON.parse(blob) as { rawLog: unknown }).rawLog,
+    })
+    expect(fragment.length).toBeLessThan(blob.length)
+    expect(storage.writes).toEqual([backups[0], PENDING_NOTICES_KEY])
 
     expect(store.save(loaded)).toEqual({ status: 'saved' })
-    expect(storage.writes).toEqual([backups[0], PROFILE_STORAGE_KEY])
-    expect(storage.getItem(backups[0]!)).toBe(blob)
+    expect(storage.writes).toEqual([backups[0], PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
+    expect(storage.getItem(backups[0]!)).toBe(fragment)
     expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
 
     const again = loadProfileFromStorage(storage)
@@ -201,7 +212,7 @@ describe('damaged raw log is quarantined, not a rollback', () => {
     ['raw log missing', (o: Record<string, unknown>) => { delete o.rawLog }],
     ['bad encoding version', (o: Record<string, unknown>) => { (o.rawLog as { v: number }).v = 9 }],
     ['id table broken', (o: Record<string, unknown>) => { (o.rawLog as { ids: unknown }).ids = 5 }],
-  ])('%s: progress loads with an empty raw log and the blob is backed up', (_l, mutate) => {
+  ])('%s: progress loads with an empty raw log and the raw-log fragment is backed up', (_l, mutate) => {
     const profile = liveProfile(2, 5)
     const obj = JSON.parse(serializeProfile(profile)) as Record<string, unknown>
     mutate(obj)
@@ -214,7 +225,12 @@ describe('damaged raw log is quarantined, not a rollback', () => {
     expect(store.lastLoad()!.source).toBe('v2')
     expect(loaded.rawLog).toEqual({ attempts: [], sessions: [] })
     expect(progressOf(loaded)).toEqual(progressOf(profile))
-    expect(listQuarantineBackups(storage).map((k) => storage.getItem(k))).toEqual([blob])
+    const backups = listQuarantineBackups(storage).map((k) => storage.getItem(k)!)
+    expect(backups).toEqual([buildRawLogFragment(blob)])
+    expect(JSON.parse(backups[0]!)).toMatchObject({
+      type: RAW_LOG_FRAGMENT_TYPE,
+      rawLog: obj.rawLog === undefined ? null : obj.rawLog,
+    })
   })
 
   it('validation ignores the deprecated V1 fields (T8 can remove them safely)', () => {
@@ -259,11 +275,11 @@ describe('wholly unreadable v2 blob', () => {
     const [backup] = listQuarantineBackups(storage)
     expect(storage.getItem(backup!)).toBe(blob)
     // Load writes only the backup; the damaged blob itself is still in place.
-    expect(storage.writes).toEqual([backup])
+    expect(storage.writes).toEqual([backup, PENDING_NOTICES_KEY])
     expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blob)
 
     expect(store.save(profile).status).toBe('saved')
-    expect(storage.writes).toEqual([backup, PROFILE_STORAGE_KEY])
+    expect(storage.writes).toEqual([backup, PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
     expect(storage.getItem(backup!)).toBe(blob)
     expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
   })
@@ -274,29 +290,44 @@ describe('wholly unreadable v2 blob', () => {
     storage.writes = []
     const store = createLocalStorageStore(storage, { now: () => T })
     expect(store.save(createEmptyProfile()).status).toBe('saved')
-    expect(storage.writes).toEqual([`${QUARANTINE_KEY_PREFIX}${T}`, PROFILE_STORAGE_KEY])
+    expect(storage.writes).toEqual([`${QUARANTINE_KEY_PREFIX}${T}`, PENDING_NOTICES_KEY, PROFILE_STORAGE_KEY])
     expect(storage.getItem(`${QUARANTINE_KEY_PREFIX}${T}`)).toBe('{broken')
   })
 
-  it('when the backup cannot be written, the damaged blob is not overwritten and nothing throws', () => {
+  it('T0.3: when the backup cannot be written, the v1 fallback is saved anyway with a notice', () => {
     const storage = new QuotaStorage(Infinity, (k) => k.startsWith(QUARANTINE_KEY_PREFIX))
-    withV1(storage)
+    const { v1Json } = withV1(storage)
     storage.setItem(PROFILE_STORAGE_KEY, '{broken')
     const results: SaveResult[] = []
     const store = createLocalStorageStore(storage, { now: () => T, onSaveResult: (r) => results.push(r) })
     const profile = store.load()
+    expect(store.lastLoad()).toMatchObject({
+      source: 'v1-migrated',
+      notice: 'unreadable-save-not-backed-up',
+    })
+    expect(profile.player.xp).toBe(1234)
 
-    expect(store.save(profile)).toEqual({ status: 'failed', reason: 'backup-required' })
-    expect(store.clear()).toEqual({ status: 'failed', reason: 'backup-required' })
-    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe('{broken')
-    expect(store.lastSaveError()).toEqual({ status: 'failed', reason: 'backup-required' })
-    expect(results).toHaveLength(2)
-
-    // Once space for the backup exists, the next save backs up first, then writes.
-    storage.failKeys = () => false
-    expect(store.save(profile).status).toBe('saved')
+    // The save that overwrites the un-backed-up data carries the notice; later saves don't.
+    expect(store.save(profile)).toEqual({ status: 'saved', notice: 'unreadable-save-not-backed-up' })
+    expect(store.save(profile)).toEqual({ status: 'saved' })
     expect(store.lastSaveError()).toBeNull()
-    expect(storage.getItem(listQuarantineBackups(storage)[0]!)).toBe('{broken')
+    expect(store.lastSaveNotice()).toBe('unreadable-save-not-backed-up')
+    expect(results).toHaveLength(2)
+    expect(listQuarantineBackups(storage)).toEqual([])
+    expect(loadProfileFromStorage(storage).profile.player.xp).toBe(1234)
+    expect(storage.getItem(LEGACY_V1_STORAGE_KEY)).toBe(v1Json)
+  })
+
+  it('T0.3: save without a prior load and a failing backup proceeds with a notice', () => {
+    const storage = new QuotaStorage(Infinity, (k) => k.startsWith(QUARANTINE_KEY_PREFIX))
+    storage.setItem(PROFILE_STORAGE_KEY, '{broken')
+    const store = createLocalStorageStore(storage, { now: () => T })
+    expect(store.save(liveProfile(1, 2))).toEqual({
+      status: 'saved',
+      notice: 'unreadable-save-not-backed-up',
+    })
+    expect(store.lastSaveNotice()).toBe('unreadable-save-not-backed-up')
+    expect(loadProfileFromStorage(storage).profile.player.xp).toBe(4321)
   })
 
   it(`keeps at most ${MAX_QUARANTINE_BACKUPS} backups (newest), deduplicating identical blobs`, () => {
@@ -311,18 +342,23 @@ describe('wholly unreadable v2 blob', () => {
     expect(backups.map((k) => storage.getItem(k))).toEqual(['{b', '{c'])
   })
 
-  it('a backup that exceeds the real byte budget blocks the overwrite (no throw)', () => {
-    const blob = `{broken ${'x'.repeat(2000)}`
+  it('T0.3: a backup that exceeds the real byte budget does not block the fallback save (no throw)', () => {
+    const blob = `{broken ${'x'.repeat(40_000)}`
     const storage = new QuotaStorage()
     withV1(storage)
     storage.setItem(PROFILE_STORAGE_KEY, blob)
-    // Room for a small profile write, but not for a second copy of the blob.
+    // Room for a profile write (reusing the blob's space), not for a second copy of it.
     storage.limit = storage.used() + 1000
     const store = createLocalStorageStore(storage, { now: () => T })
     const profile = store.load()
     expect(listQuarantineBackups(storage)).toEqual([])
-    expect(store.save(profile)).toEqual({ status: 'failed', reason: 'backup-required' })
-    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blob)
+    expect(store.lastLoad()!.notice).toBe('unreadable-save-not-backed-up')
+    const fresh = createEmptyProfile('Mikaela', 1)
+    const r = store.save(fresh)
+    expect(r.status).not.toBe('failed')
+    expect(r).toMatchObject({ notice: 'unreadable-save-not-backed-up' })
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).not.toBe(blob)
+    expect(profile.player.xp).toBe(1234)
   })
 })
 
@@ -454,28 +490,31 @@ describe('evidence caches survive raw-log loss (never rebuilt by persistence)', 
     }
   })
 
-  it('damaged raw log + failing backup (byte budget): nothing overwritten, progress survives in memory', () => {
+  it('T0.3: damaged raw log + fragment backup does not fit: valid state saved anyway, notice surfaced', () => {
     const profile = withEvidence(false)
     const blob = damagedBlob(profile, (enc) => {
       enc.s[1]![1] = 'bad-kind'
     })
     const storage = new QuotaStorage()
     storage.setItem(PROFILE_STORAGE_KEY, blob)
-    storage.limit = storage.used() + 500 // a second copy of the blob does not fit
+    storage.limit = storage.used() + 500 // even the raw-log fragment does not fit
     const store = createLocalStorageStore(storage, { now: () => T })
 
     const loaded = store.load()
     expect(store.lastLoad()!.quarantine?.kind).toBe('raw-log-damaged')
+    expect(store.lastLoad()!.notice).toBe('damaged-history-not-backed-up')
     expect(listQuarantineBackups(storage)).toEqual([])
     expect(progressOf(loaded)).toEqual(progressOf(profile))
     expect(caches(loaded)).toBe(caches(profile))
 
     loaded.player.xp += 10
-    expect(store.save(loaded)).toEqual({ status: 'failed', reason: 'backup-required' })
-    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBe(blob)
-    // The in-memory profile is untouched by the refused save.
-    expect(loaded.player.xp).toBe(profile.player.xp + 10)
-    expect(caches(loaded)).toBe(caches(profile))
+    expect(store.save(loaded)).toEqual({ status: 'saved', notice: 'damaged-history-not-backed-up' })
+    expect(store.lastSaveNotice()).toBe('damaged-history-not-backed-up')
+    expect(store.lastSaveError()).toBeNull()
+    const reloaded = createLocalStorageStore(storage).load()
+    expect(reloaded.player.xp).toBe(profile.player.xp + 10)
+    expect(caches(reloaded)).toBe(caches(profile))
+    expect(reloaded.progress.completedLevelIds).toEqual(profile.progress.completedLevelIds)
   })
 })
 
