@@ -251,33 +251,35 @@ export function PlayScreen({
           ) : null}
         </AnimatePresence>
 
-        <AnimatePresence mode="wait">
-          <motion.h2
-            key={missHold ? `miss-${missHold.reveal}` : (question?.id ?? 'empty')}
-            className="prompt-expression"
-            initial={{ opacity: 0, scale: 0.92, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 1.04, y: -6 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-          >
-            {expression}
-          </motion.h2>
-        </AnimatePresence>
+        <div className="problem-card">
+          <AnimatePresence mode="wait">
+            <motion.h2
+              key={missHold ? `miss-${missHold.reveal}` : (question?.id ?? 'empty')}
+              className="prompt-expression"
+              initial={{ opacity: 0, scale: 0.92, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.04, y: -6 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
+              {expression}
+            </motion.h2>
+          </AnimatePresence>
 
-        <motion.div
-          className={`answer-draft${draft ? '' : ' empty'}`}
-          animate={
-            shake
-              ? { x: [0, -8, 8, -6, 6, 0], scale: 1 }
-              : snapshot.lastFeedback === 'correct-subtle' ||
-                  snapshot.lastFeedback === 'got-it-back'
-                ? { scale: [1, 1.08, 1], x: 0 }
-                : { scale: 1, x: 0 }
-          }
-          transition={{ duration: shake ? 0.32 : 0.22 }}
-        >
-          {draft || ''}
-        </motion.div>
+          <motion.div
+            className={`answer-draft${draft ? '' : ' empty'}`}
+            animate={
+              shake
+                ? { x: [0, -8, 8, -6, 6, 0], scale: 1 }
+                : snapshot.lastFeedback === 'correct-subtle' ||
+                    snapshot.lastFeedback === 'got-it-back'
+                  ? { scale: [1, 1.08, 1], x: 0 }
+                  : { scale: 1, x: 0 }
+            }
+            transition={{ duration: shake ? 0.32 : 0.22 }}
+          >
+            {draft || ''}
+          </motion.div>
+        </div>
 
         <div className={`feedback-line ${fb.kind}`}>
           {missHold ? (
@@ -285,9 +287,16 @@ export function PlayScreen({
               <span className="almost-word">Almost!</span> {missHold.reveal}
               <div className="miss-hint">Type {missHold.expected} to keep going</div>
             </>
-          ) : (
-            fb.text
-          )}
+          ) : fb.text ? (
+            <span className={`feedback-pill${fb.kind === 'celeb' ? ' celeb' : ''}`}>
+              {fb.kind === 'ok' || fb.kind === 'celeb' || fb.kind === 'recovery' ? (
+                <span className="feedback-star" aria-hidden>
+                  ★
+                </span>
+              ) : null}
+              {fb.text}
+            </span>
+          ) : null}
         </div>
 
         {!missHold && paceDeltaSec != null && paceDeltaSec > 0 && snapshot.index >= 3 ? (

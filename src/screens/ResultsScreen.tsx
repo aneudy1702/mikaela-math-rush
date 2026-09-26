@@ -106,7 +106,7 @@ export function ResultsScreen({ summary, onAgain, onHome }: ResultsScreenProps) 
         ) : null}
       </div>
 
-      <div className="results-grid">
+      <div className="results-grid four">
         <div className="mini-stat">
           <span className="stat-label">Score</span>
           <div className="stat-value">
@@ -139,7 +139,7 @@ export function ResultsScreen({ summary, onAgain, onHome }: ResultsScreenProps) 
               className="inline-icon"
               draggable={false}
             />
-            vs Best
+            Faster than Best
           </span>
           <div className="stat-value">
             {summary.deltaVsPreviousBestMs == null

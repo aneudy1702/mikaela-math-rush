@@ -132,8 +132,11 @@ img {
 
 .brand-math {
   display: block;
-  color: var(--cyan);
-  text-shadow: 0 0 16px #3de7ff66;
+  background: linear-gradient(100deg, #ff6ad5 0%, #b44dff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 12px #ff4db866);
 }
 
 .brand-rush {
@@ -176,16 +179,45 @@ img {
   visibility: hidden;
 }
 
+.home-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-height: clamp(180px, 42vw, 280px);
+  margin: -4px 0 -12px;
+}
+
 .home-runner {
   position: relative;
   z-index: 1;
   display: block;
   width: clamp(180px, 55vw, 320px);
   height: auto;
-  margin: -8px auto -18px;
   object-fit: contain;
   pointer-events: none;
   filter: drop-shadow(0 12px 28px #3de7ff33);
+}
+
+.float-mark {
+  position: absolute;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.4rem;
+  pointer-events: none;
+  opacity: 0.85;
+  text-shadow: 0 0 12px currentColor;
+  animation: float-mark 3.6s ease-in-out infinite;
+}
+
+.float-mark.a { top: 12%; left: 8%; color: var(--cyan); animation-delay: 0s; }
+.float-mark.b { top: 22%; right: 10%; color: var(--magenta); animation-delay: 0.4s; }
+.float-mark.c { bottom: 18%; left: 14%; color: var(--yellow); animation-delay: 0.8s; }
+.float-mark.d { bottom: 28%; right: 12%; color: #7dffa8; animation-delay: 1.2s; }
+
+@keyframes float-mark {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 .home-stats {
@@ -243,7 +275,13 @@ img {
 
 .stat-value.hot {
   color: #ffb86b;
-  font-size: 1.15rem;
+  font-size: 1.45rem;
+}
+
+.stat-sub {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--ink-muted);
 }
 
 .stat-value.xl {
@@ -531,6 +569,19 @@ img {
   z-index: 0;
 }
 
+.problem-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 320px);
+  padding: 18px 20px 14px;
+  border-radius: 22px;
+  background: rgba(8, 14, 48, 0.72);
+  border: 2px solid rgba(61, 231, 255, 0.55);
+  box-shadow:
+    0 0 28px #3de7ff33,
+    inset 0 0 24px #3de7ff14;
+}
+
 .prompt-expression {
   position: relative;
   z-index: 1;
@@ -542,6 +593,31 @@ img {
   margin: 0;
   color: var(--yellow);
   text-shadow: 0 0 20px #ffe14a55;
+}
+
+.feedback-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 1.05rem;
+  background: rgba(61, 255, 154, 0.16);
+  border: 1px solid rgba(61, 255, 154, 0.55);
+  color: var(--success);
+  box-shadow: 0 0 18px #3dff9a33;
+}
+
+.feedback-pill.celeb {
+  background: rgba(255, 225, 74, 0.16);
+  border-color: rgba(255, 225, 74, 0.55);
+  color: var(--yellow);
+}
+
+.feedback-star {
+  color: var(--yellow);
+  font-size: 1rem;
 }
 
 .answer-draft {
@@ -665,6 +741,7 @@ img {
 .key.back {
   background: linear-gradient(180deg, #ff6b9a 0%, #c43d6e 100%);
   box-shadow: 0 5px 0 #7a1f42;
+  font-size: 1.35rem;
 }
 
 .key.enter {
@@ -673,6 +750,7 @@ img {
   box-shadow:
     0 5px 0 var(--enter-edge),
     0 0 20px #3dff9a44;
+  font-size: 1.7rem;
 }
 
 .key:disabled {
@@ -789,7 +867,22 @@ img {
   font-weight: 900;
   font-size: clamp(2rem, 9vw, 2.6rem);
   letter-spacing: -0.02em;
-  text-shadow: 0 0 20px #a78bfa66;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow:
+    0 0 18px #ffe14a88,
+    0 0 28px #7c3aed88,
+    0 2px 0 #4c1d95;
+}
+
+.results-grid.four {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 400px) {
+  .results-grid.four {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .results-trophy-inline {
@@ -849,10 +942,23 @@ img {
 .mastery-card {
   position: relative;
   padding: 14px 16px;
-  border-radius: 18px;
-  background: linear-gradient(100deg, #3a2a10, #2a1a40);
-  border: 1px solid rgba(255, 225, 74, 0.35);
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(180deg, #ffe9a8 0%, #f6d06a 100%);
+  border: 1px solid rgba(255, 225, 74, 0.55);
   text-align: left;
+  color: #2a1600;
+}
+
+.mastery-card .stat-label {
+  color: #5a3a10;
+}
+
+.mastery-card p {
+  color: #5a3a10 !important;
+}
+
+.mastery-card .mastery-delta {
+  color: #7c3aed;
 }
 
 .mastery-card p {

@@ -94,18 +94,24 @@ export function HomeScreen({
         </button>
       </header>
 
-      <motion.img
-        src={gameAssets.characters.runner}
-        alt=""
-        className="home-runner"
-        draggable={false}
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: [0, -6, 0] }}
-        transition={{
-          opacity: { duration: 0.45 },
-          y: { duration: 2.8, repeat: Infinity, ease: 'easeInOut' },
-        }}
-      />
+      <div className="home-hero" aria-hidden>
+        <span className="float-mark a">8</span>
+        <span className="float-mark b">×</span>
+        <span className="float-mark c">+</span>
+        <span className="float-mark d">5</span>
+        <motion.img
+          src={gameAssets.characters.runner}
+          alt=""
+          className="home-runner"
+          draggable={false}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: [0, -6, 0] }}
+          transition={{
+            opacity: { duration: 0.45 },
+            y: { duration: 2.8, repeat: Infinity, ease: 'easeInOut' },
+          }}
+        />
+      </div>
 
       <div className="home-stats">
         <div className="stat-card stat-best">
@@ -130,7 +136,13 @@ export function HomeScreen({
           <div>
             <span className="stat-label">Current Streak</span>
             <strong className="stat-value hot">
-              {dailyStreak > 0 ? `${dailyStreak} day${dailyStreak === 1 ? '' : 's'}` : '—'}
+              {dailyStreak > 0 ? dailyStreak : '—'}
+              {dailyStreak > 0 ? (
+                <span className="stat-sub">
+                  {' '}
+                  day{dailyStreak === 1 ? '' : 's'}
+                </span>
+              ) : null}
             </strong>
           </div>
         </div>
