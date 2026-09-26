@@ -162,6 +162,11 @@ export function isHighConfidence(record: FactRecord): boolean {
   )
 }
 
+/**
+ * @deprecated V1 speed-weighted mastery. V2 status is `factStatus` (learning/advancement.ts,
+ * D2: latency never gates mastery). Kept unchanged only for the legacy engine until T5/T7;
+ * it must not gate V2 selection, status, completion or marks. Removed in T8.
+ */
 export function isStrongFact(record: FactRecord): boolean {
   return (
     isHighConfidence(record) &&
@@ -169,6 +174,11 @@ export function isStrongFact(record: FactRecord): boolean {
   )
 }
 
+/**
+ * @deprecated V1 speed-weighted mastery. V2 status is `factStatus` (learning/advancement.ts,
+ * D2: latency never gates mastery). Kept unchanged only for the legacy engine until T5/T7;
+ * it must not gate V2 selection, status, completion or marks. Removed in T8.
+ */
 export function isMasteredFact(record: FactRecord): boolean {
   return (
     record.confidence >= 0.85 &&
@@ -176,7 +186,12 @@ export function isMasteredFact(record: FactRecord): boolean {
   )
 }
 
-/** Derived table mastery for display (×n). Not canonical. */
+/**
+ * Derived table mastery for display (×n). Not canonical.
+ * @deprecated V1 speed-weighted display. V2 per-fact progress is `factStatus` /
+ * `factDisplayValue` (learning/advancement.ts, D2/D10). Kept unchanged for the legacy
+ * screens until T5/T7/T8; it must not gate anything. Removed in T8.
+ */
 export function derivedTableMastery(
   facts: Record<string, FactRecord>,
   table: number,
