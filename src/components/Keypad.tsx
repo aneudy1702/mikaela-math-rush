@@ -1,3 +1,5 @@
+import { playSfx, unlockAudio } from '../audio/engine'
+
 interface KeypadProps {
   disabled?: boolean
   onDigit: (digit: string) => void
@@ -6,6 +8,11 @@ interface KeypadProps {
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'Go'] as const
+
+function tap() {
+  void unlockAudio()
+  playSfx('tap')
+}
 
 export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps) {
   return (
@@ -18,7 +25,10 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
               type="button"
               className="key action"
               disabled={disabled}
-              onClick={onBackspace}
+              onClick={() => {
+                tap()
+                onBackspace()
+              }}
               aria-label="Backspace"
             >
               ⌫
@@ -32,7 +42,10 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
               type="button"
               className="key action enter"
               disabled={disabled}
-              onClick={onEnter}
+              onClick={() => {
+                tap()
+                onEnter()
+              }}
             >
               Go
             </button>
@@ -44,7 +57,10 @@ export function Keypad({ disabled, onDigit, onBackspace, onEnter }: KeypadProps)
             type="button"
             className="key"
             disabled={disabled}
-            onClick={() => onDigit(key)}
+            onClick={() => {
+              tap()
+              onDigit(key)
+            }}
           >
             {key}
           </button>

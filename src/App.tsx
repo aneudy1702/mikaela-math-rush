@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LearnerProfile, PlacementItem, SessionMode } from './engine'
+import type {
+  FeedbackTier,
+  LearnerProfile,
+  PlacementItem,
+  SessionMode,
+} from './engine'
 import {
   SessionEngine,
   buildPlacementSequence,
   createLocalStorageStore,
   createMultiplicationSkill,
 } from './engine'
+import {
+  isMuted as readMuted,
+  playSfx,
+  toggleMuted,
+  unlockAudio,
+  type SfxEvent,
+} from './audio/engine'
 import { HomeScreen } from './screens/HomeScreen'
 import { PlacementScreen } from './screens/PlacementScreen'
 import { PlayScreen } from './screens/PlayScreen'
@@ -24,13 +36,32 @@ function formatBest(ms: number | undefined): string {
   return m > 0 ? `${m}:${rem.padStart(4, '0')}` : `${s.toFixed(1)}s`
 }
 
+function feedbackToSfx(tier: FeedbackTier | null): SfxEvent | null {
+  if (!tier) return null
+  if (tier === 'soft-miss') return 'miss'
+  if (tier === 'correct-subtle') return 'correct'
+  if (tier === 'got-it-back') return 'got-it-back'
+  if (tier === 'new-record') return 'new-record'
+  if (
+    tier === 'streak-5' ||
+    tier === 'streak-10' ||
+    tier === 'streak-25' ||
+    tier === 'streak-50' ||
+    tier === 'streak-100'
+  ) {
+    return tier
+  }
+  return null
+}
+
 export function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [profile, setProfile] = useState<LearnerProfile>(() => store.load())
-  const [muted, setMuted] = useState(false)
+  const [muted, setMutedState] = useState(() => readMuted())
   const [clock, setClock] = useState(0)
   const [placementItems, setPlacementItems] = useState<PlacementItem[]>([])
   const engineRef = useRef<SessionEngine | null>(null)
+  const lastSfxKey = useRef<string>('')
 
   useEffect(() => {
     if (screen !== 'play') return
@@ -38,31 +69,54 @@ export function App() {
     return () => window.clearInterval(id)
   }, [screen])
 
+  function ensureAudio() {
+    void unlockAudio()
+  }
+
   function persist(next: LearnerProfile) {
     setProfile(next)
     store.save(next)
   }
 
+  function handleToggleMute() {
+    ensureAudio()
+    setMutedState(toggleMuted())
+  }
+
   function startPlacement() {
+    ensureAudio()
+    playSfx('start')
     setPlacementItems(buildPlacementSequence(16))
     setScreen('placement')
   }
 
   function startSession(mode: SessionMode) {
+    ensureAudio()
+    playSfx('start')
     const fresh = store.load()
     setProfile(fresh)
     const engine = new SessionEngine(fresh, skill, mode)
     engineRef.current = engine
     engine.start(Date.now())
+    lastSfxKey.current = ''
     setClock(0)
     setScreen('play')
   }
 
   function handleSubmit(value: number) {
+    ensureAudio()
     const engine = engineRef.current
     if (!engine) return
     const snap = engine.submit(value, Date.now())
     persist(engine.getProfile())
+
+    const sfx = feedbackToSfx(snap.lastFeedback)
+    const key = `${snap.index}-${snap.lastFeedback}-${snap.missHold?.reveal ?? ''}-${snap.finished}`
+    if (sfx && key !== lastSfxKey.current) {
+      lastSfxKey.current = key
+      playSfx(sfx)
+    }
+
     if (snap.finished) {
       setScreen('results')
     } else {
@@ -97,10 +151,7 @@ export function App() {
     if (!snapshot.finished && (snapshot.current || snapshot.missHold)) {
       return (
         <div className="app-shell">
-          <PlayScreen
-            snapshot={snapshot}
-            onSubmit={handleSubmit}
-          />
+          <PlayScreen snapshot={snapshot} onSubmit={handleSubmit} />
         </div>
       )
     }
@@ -127,7 +178,7 @@ export function App() {
         bestQuick={formatBest(profile.bestTimeMsByMode.quick)}
         muted={muted}
         needsPlacement={!profile.placementComplete}
-        onToggleMute={() => setMuted((m) => !m)}
+        onToggleMute={handleToggleMute}
         onQuick={() => startSession('quick')}
         onPractice={() => startSession('practice')}
         onRush={() => startSession('rush')}
