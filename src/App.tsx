@@ -94,12 +94,11 @@ export function App() {
   if (screen === 'play' && engineRef.current) {
     const snapshot = engineRef.current.snapshot(Date.now())
     void clock
-    if (!snapshot.finished && snapshot.current) {
+    if (!snapshot.finished && (snapshot.current || snapshot.missHold)) {
       return (
         <div className="app-shell">
           <PlayScreen
             snapshot={snapshot}
-            bestMs={profile.bestTimeMsByMode[snapshot.mode]}
             onSubmit={handleSubmit}
           />
         </div>

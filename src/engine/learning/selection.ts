@@ -32,6 +32,7 @@ export function createEmptyProfile(
     bestTimeMsByMode: {},
     bestStreakByMode: {},
     gameXp: 0,
+    pendingReinforcements: [],
   }
 }
 

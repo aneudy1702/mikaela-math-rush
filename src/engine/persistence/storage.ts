@@ -81,5 +81,8 @@ export function rehydrateProfile(raw: LearnerProfile): LearnerProfile {
     bestStreakByMode: { ...raw.bestStreakByMode },
     gameXp: raw.gameXp ?? 0,
     placementComplete: Boolean(raw.placementComplete),
+    pendingReinforcements: Array.isArray(raw.pendingReinforcements)
+      ? raw.pendingReinforcements
+      : [],
   }
 }

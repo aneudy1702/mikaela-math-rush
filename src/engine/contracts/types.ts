@@ -99,6 +99,14 @@ export interface FactRecord {
   reinforcement: ReinforcementState
 }
 
+/** Cross-session spaced reinforcement carry-over. */
+export interface PendingReinforcement {
+  factId: string
+  kind: 'reintroduce' | 'later-check'
+  /** Questions until due when the next session starts (relative). */
+  dueInQuestions: number
+}
+
 export interface LearnerProfile {
   version: 1
   learnerName: string
@@ -110,6 +118,8 @@ export interface LearnerProfile {
   bestStreakByMode: Partial<Record<SessionMode, number>>
   /** Game XP — never write into academic mastery fields. */
   gameXp: number
+  /** Pending spaced practice surviving session boundaries. */
+  pendingReinforcements: PendingReinforcement[]
 }
 
 export interface SessionConfig {
@@ -122,6 +132,7 @@ export interface SessionConfig {
 export type FeedbackTier =
   | 'correct-subtle'
   | 'soft-miss'
+  | 'got-it-back'
   | 'streak-5'
   | 'streak-10'
   | 'streak-25'
@@ -138,6 +149,13 @@ export interface SessionQuestionState {
   startedAtMs: number
 }
 
+/** Soft-miss resource beat — same fact, timer frozen, type correct to continue. */
+export interface SoftMissHold {
+  expression: string
+  expected: number
+  reveal: string
+}
+
 export interface SessionSnapshot {
   mode: SessionMode
   index: number
@@ -150,4 +168,6 @@ export interface SessionSnapshot {
   finished: boolean
   lastFeedback: FeedbackTier | null
   lastReveal: string | null
+  missHold: SoftMissHold | null
+  timerPaused: boolean
 }

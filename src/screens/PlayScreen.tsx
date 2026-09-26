@@ -5,7 +5,6 @@ import { Keypad } from '../components/Keypad'
 
 interface PlayScreenProps {
   snapshot: SessionSnapshot
-  bestMs: number | undefined
   onSubmit: (value: number) => void
 }
 
@@ -18,12 +17,13 @@ function formatTime(ms: number): string {
 
 function feedbackLabel(tier: FeedbackTier | null, reveal: string | null): {
   text: string
-  kind: 'ok' | 'miss' | 'celeb' | ''
+  kind: 'ok' | 'miss' | 'celeb' | 'recovery' | ''
 } {
   if (!tier) return { text: '', kind: '' }
   if (tier === 'soft-miss') {
     return { text: reveal ? `Almost! ${reveal}` : 'Almost!', kind: 'miss' }
   }
+  if (tier === 'got-it-back') return { text: 'Got it back!', kind: 'recovery' }
   if (tier === 'correct-subtle') return { text: '', kind: 'ok' }
   if (tier === 'new-record') return { text: 'New record!', kind: 'celeb' }
   const map: Record<string, string> = {
@@ -36,20 +36,34 @@ function feedbackLabel(tier: FeedbackTier | null, reveal: string | null): {
   return { text: map[tier] ?? '', kind: 'celeb' }
 }
 
-export function PlayScreen({ snapshot, bestMs, onSubmit }: PlayScreenProps) {
+export function PlayScreen({ snapshot, onSubmit }: PlayScreenProps) {
   const [draft, setDraft] = useState('')
   const [locked, setLocked] = useState(false)
+  const [shake, setShake] = useState(false)
+  const missHold = snapshot.missHold
   const question = snapshot.current?.question
-  const expression =
-    question?.prompt.type === 'expression' ? question.prompt.expression : '—'
+  const expression = missHold
+    ? missHold.expression
+    : question?.prompt.type === 'expression'
+      ? question.prompt.expression
+      : '—'
 
   useEffect(() => {
     setDraft('')
     setLocked(false)
-  }, [question?.id])
+  }, [question?.id, missHold?.reveal])
+
+  useEffect(() => {
+    if (snapshot.lastFeedback === 'soft-miss') {
+      setShake(true)
+      const id = window.setTimeout(() => setShake(false), 320)
+      return () => window.clearTimeout(id)
+    }
+  }, [snapshot.lastFeedback, snapshot.lastReveal])
 
   const progress = snapshot.total > 0 ? snapshot.index / snapshot.total : 0
   const fb = feedbackLabel(snapshot.lastFeedback, snapshot.lastReveal)
+  const streakHot = snapshot.streak >= 5
 
   function appendDigit(d: string) {
     if (locked) return
@@ -67,26 +81,37 @@ export function PlayScreen({ snapshot, bestMs, onSubmit }: PlayScreenProps) {
     if (!Number.isFinite(value)) return
     setLocked(true)
     onSubmit(value)
+    // Unlock quickly if miss-continue was wrong so kid can retry.
+    if (missHold) {
+      window.setTimeout(() => setLocked(false), 120)
+    }
   }
 
   return (
     <section className="play">
       <div className="play-top">
         <span>
-          Q <strong>{Math.min(snapshot.index + 1, snapshot.total)}</strong> /{' '}
-          {snapshot.total}
+          Q <strong>{Math.min(snapshot.index + (missHold ? 0 : 1), snapshot.total)}</strong>{' '}
+          / {snapshot.total}
         </span>
-        <span>
+        <motion.span
+          className={`streak-stat${streakHot ? ' hot' : ''}`}
+          key={snapshot.streak}
+          initial={
+            snapshot.lastFeedback === 'correct-subtle' ||
+            snapshot.lastFeedback === 'got-it-back' ||
+            (snapshot.lastFeedback?.startsWith('streak-') ?? false)
+              ? { scale: 1.25 }
+              : false
+          }
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+        >
           Streak <strong>{snapshot.streak}</strong>
-        </span>
-        <span>
+        </motion.span>
+        <span className={snapshot.timerPaused ? 'timer-paused' : undefined}>
           TIME <strong>{formatTime(snapshot.elapsedMs)}</strong>
-          {bestMs != null ? (
-            <>
-              {' '}
-              · BEST <strong>{formatTime(bestMs)}</strong>
-            </>
-          ) : null}
+          {snapshot.timerPaused ? <span className="pause-tag"> paused</span> : null}
         </span>
       </div>
 
@@ -95,11 +120,11 @@ export function PlayScreen({ snapshot, bestMs, onSubmit }: PlayScreenProps) {
       </div>
 
       <div
-        className={`prompt-stage${snapshot.current?.isBossPresentation ? ' boss' : ''}`}
+        className={`prompt-stage${snapshot.current?.isBossPresentation && !missHold ? ' boss' : ''}${missHold ? ' miss-hold' : ''}`}
       >
         <AnimatePresence mode="wait">
           <motion.h2
-            key={question?.id ?? 'empty'}
+            key={missHold ? `miss-${missHold.reveal}` : (question?.id ?? 'empty')}
             className="prompt-expression"
             initial={{ opacity: 0, scale: 0.92, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -113,18 +138,35 @@ export function PlayScreen({ snapshot, bestMs, onSubmit }: PlayScreenProps) {
         <motion.div
           className={`answer-draft${draft ? '' : ' empty'}`}
           animate={
-            snapshot.lastFeedback === 'correct-subtle'
-              ? { scale: [1, 1.06, 1] }
-              : { scale: 1 }
+            shake
+              ? { x: [0, -8, 8, -6, 6, 0], scale: 1 }
+              : snapshot.lastFeedback === 'correct-subtle' ||
+                  snapshot.lastFeedback === 'got-it-back'
+                ? { scale: [1, 1.08, 1], x: 0 }
+                : { scale: 1, x: 0 }
           }
-          transition={{ duration: 0.22 }}
+          transition={{ duration: shake ? 0.32 : 0.22 }}
         >
           {draft || '·'}
         </motion.div>
 
-        <div className={`feedback-line ${fb.kind}`}>{fb.text}</div>
-        {snapshot.streak > 0 ? (
-          <div className="streak-chip">×{snapshot.streak} streak</div>
+        <div className={`feedback-line ${fb.kind}`}>
+          {missHold ? (
+            <>
+              <span className="almost-word">Almost!</span> {missHold.reveal}
+              <div className="miss-hint">Type {missHold.expected} to keep going</div>
+            </>
+          ) : (
+            fb.text
+          )}
+        </div>
+        {!missHold && snapshot.streak > 0 ? (
+          <div className={`streak-chip${streakHot ? ' hot' : ''}`}>
+            ×{snapshot.streak} streak
+          </div>
+        ) : null}
+        {!missHold && snapshot.current?.isReinforcement ? (
+          <div className="coming-back">Coming back to this one</div>
         ) : null}
       </div>
 

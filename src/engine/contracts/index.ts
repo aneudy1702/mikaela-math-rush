@@ -6,6 +6,7 @@ export type {
   FeedbackTier,
   LearnerProfile,
   MathSkill,
+  PendingReinforcement,
   Question,
   QuestionPrompt,
   QuestionRequest,
@@ -17,6 +18,7 @@ export type {
   SessionMode,
   SessionQuestionState,
   SessionSnapshot,
+  SoftMissHold,
 } from './types'
 
 export {

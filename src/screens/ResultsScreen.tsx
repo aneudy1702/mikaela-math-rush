@@ -14,6 +14,16 @@ function formatTime(ms: number): string {
   return m > 0 ? `${m}:${rem.padStart(4, '0')}` : `${s.toFixed(1)}s`
 }
 
+function learningLine(summary: SessionResultSummary): string {
+  if (summary.softMisses > 0 && summary.recoveries > 0) {
+    return `Came back to ${summary.softMisses} soft miss${summary.softMisses === 1 ? '' : 'es'} — you fixed ${summary.recoveries}.`
+  }
+  if (summary.factsGettingStronger > 0) {
+    return `${summary.factsGettingStronger} fact${summary.factsGettingStronger === 1 ? '' : 's'} getting stronger.`
+  }
+  return 'Nice work — keep racing yesterday’s you.'
+}
+
 export function ResultsScreen({ summary, onAgain, onHome }: ResultsScreenProps) {
   return (
     <section className="results">
@@ -28,6 +38,7 @@ export function ResultsScreen({ summary, onAgain, onHome }: ResultsScreenProps) 
             {summary.newTimeRecord ? 'NEW RECORD' : 'New streak record'}
           </p>
         )}
+        <p className="learning-line">{learningLine(summary)}</p>
       </motion.div>
 
       <div className="results-grid">
@@ -56,7 +67,7 @@ export function ResultsScreen({ summary, onAgain, onHome }: ResultsScreenProps) 
       <div className="home-cta">
         <motion.button
           type="button"
-          className="btn-primary"
+          className="btn-primary btn-pulse"
           onClick={onAgain}
           whileTap={{ scale: 0.97 }}
         >

@@ -2,6 +2,7 @@ import type {
   Answer,
   LearnerProfile,
   MathSkill,
+  PendingReinforcement,
   Question,
   QuestionRequest,
   Result,
@@ -67,6 +68,28 @@ export class QuestionOrchestrator {
   /** Peek scheduled reinforcements (tests). */
   getScheduled(): readonly ReinforcementEntry[] {
     return this.queue
+  }
+
+  /** Seed queue from profile carry-over (relative delays → absolute). */
+  seedPending(pending: PendingReinforcement[]): void {
+    for (const p of pending) {
+      const delay = Math.max(0, p.dueInQuestions)
+      this.queue.push({
+        factId: p.factId,
+        dueAtIndex: this.questionIndex + delay,
+        kind: p.kind,
+      })
+    }
+    this.queue.sort((a, b) => a.dueAtIndex - b.dueAtIndex)
+  }
+
+  /** Export remaining queue as relative delays for persistence. */
+  exportPending(): PendingReinforcement[] {
+    return this.queue.map((e) => ({
+      factId: e.factId,
+      kind: e.kind,
+      dueInQuestions: Math.max(0, e.dueAtIndex - this.questionIndex),
+    }))
   }
 
   nextQuestion(

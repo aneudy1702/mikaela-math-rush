@@ -43,7 +43,7 @@ export function HomeScreen({
           {needsPlacement ? (
             <motion.button
               type="button"
-              className="btn-primary"
+              className="btn-primary btn-pulse"
               onClick={onPlacement}
               whileTap={{ scale: 0.97 }}
             >
@@ -53,7 +53,7 @@ export function HomeScreen({
             <>
               <motion.button
                 type="button"
-                className="btn-primary"
+                className="btn-primary btn-pulse"
                 onClick={onQuick}
                 whileTap={{ scale: 0.97 }}
               >
@@ -66,10 +66,11 @@ export function HomeScreen({
                 whileTap={{ scale: 0.97 }}
               >
                 Practice · 25
+                <span className="btn-sub">soft misses have room to return</span>
               </motion.button>
               <motion.button
                 type="button"
-                className="btn-secondary"
+                className="btn-tertiary"
                 onClick={onRush}
                 whileTap={{ scale: 0.97 }}
               >
