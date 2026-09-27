@@ -5,22 +5,11 @@ import type { QuestionSourceContext, SessionQuestionSource } from './levelSessio
 /**
  * Asks the current skill plugin for the next question.
  * Evidence is keyed by the plugin's concept id. The source does not inspect which skill it is.
- * Shown instances are skipped until the level's other instances have appeared.
  */
 export function createPluginQuestionSource(ctx: QuestionSourceContext): SessionQuestionSource {
   const level = getLevel(ctx.levelId, ctx.curriculum)
   const targets = completionGatingIds(level)
   let pending: PendingReinforcement[] = []
-  const shown: string[] = []
-
-  function draw(exclude: readonly string[]) {
-    return ctx.skill.generateQuestion({
-      skillId: ctx.skill.id,
-      targetConcepts: targets.length > 0 ? [...targets] : undefined,
-      cognitiveDifficulty: 0.5,
-      excludeInstanceKeys: exclude,
-    })
-  }
 
   return {
     seedPending(items) {
@@ -28,13 +17,11 @@ export function createPluginQuestionSource(ctx: QuestionSourceContext): SessionQ
       return 0
     },
     nextQuestion() {
-      let question = draw(shown)
-      if (shown.includes(question.instanceKey)) {
-        const last = shown[shown.length - 1]
-        shown.length = 0
-        question = draw(last ? [last] : [])
-      }
-      shown.push(question.instanceKey)
+      const question = ctx.skill.generateQuestion({
+        skillId: ctx.skill.id,
+        targetConcepts: targets.length > 0 ? [...targets] : undefined,
+        cognitiveDifficulty: 0.5,
+      })
       const factId = ctx.skill.conceptIdFor?.(question) ?? question.conceptIds[0]
       if (!factId) throw new Error(`Question ${question.id} has no evidence key`)
       return {
@@ -54,7 +41,6 @@ export function createPluginQuestionSource(ctx: QuestionSourceContext): SessionQ
       void correct
     },
     discardLast() {
-      shown.pop()
       return false
     },
     exportPending() {

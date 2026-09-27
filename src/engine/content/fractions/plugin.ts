@@ -1,5 +1,4 @@
 import type { Answer, AnswerChoice, MathSkill, Question, QuestionRequest, Result } from '../../contracts'
-import { poolWithoutShown } from '../freshPool'
 import {
   FRACTION_ITEMS,
   FRACTIONS_SKILL_ID,
@@ -68,9 +67,9 @@ export function createFractionsSkill(rng: () => number = Math.random): MathSkill
     grade: 4,
     domain: 'number-and-operations-fractions',
     generateQuestion(request: QuestionRequest): Question {
-      const available = poolWithoutShown(resolvePool(request), (item) => item.instanceKey, request.excludeInstanceKeys)
-      if (available.length === 0) throw new Error('Empty fractions pool')
-      const item = available[Math.floor(rng() * available.length)]!
+      const pool = resolvePool(request)
+      if (pool.length === 0) throw new Error('Empty fractions pool')
+      const item = pool[Math.floor(rng() * pool.length)]!
       return toQuestion(item, request.cognitiveDifficulty)
     },
     conceptIdFor(question: Question): string {

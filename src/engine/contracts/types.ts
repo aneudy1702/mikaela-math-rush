@@ -54,11 +54,6 @@ export interface QuestionRequest {
   skillId: string
   targetConcepts?: string[]
   cognitiveDifficulty: number
-  /**
-   * Instances already shown this pass. A plugin skips them when another instance
-   * remains. This is variety, not mastery.
-   */
-  excludeInstanceKeys?: readonly string[]
 }
 
 export interface MathSkill {

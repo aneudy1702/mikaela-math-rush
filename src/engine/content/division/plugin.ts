@@ -1,5 +1,4 @@
 import type { Answer, AnswerChoice, MathSkill, Question, QuestionRequest, Result } from '../../contracts'
-import { poolWithoutShown } from '../freshPool'
 import {
   DIVISION_CONCEPTS,
   DIVISION_SKILL_ID,
@@ -90,8 +89,7 @@ export function createDivisionSkill(rng: () => number = Math.random): MathSkill 
     grade: 3,
     domain: 'operations-algebraic-thinking',
     generateQuestion(request: QuestionRequest): Question {
-      const available = poolWithoutShown(resolvePool(request), (concept) => concept.id, request.excludeInstanceKeys)
-      return toQuestion(pick(available, rng), request.cognitiveDifficulty)
+      return toQuestion(pick(resolvePool(request), rng), request.cognitiveDifficulty)
     },
     conceptIdFor(question: Question): string {
       const conceptId = question.conceptIds[0]

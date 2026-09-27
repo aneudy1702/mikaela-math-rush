@@ -83,7 +83,7 @@ describe('algebra one-step plugin', () => {
     expect(quotient.choices?.some((choice) => choice.misconceptionId === 'algebra.divided-instead-of-multiplied')).toBe(true)
     expect(skill.conceptIdFor?.(quotient)).toBe('algebra.one-step.division')
 
-    const divided = createAlgebraSkill(() => 0.2).generateQuestion({
+    const divided = createAlgebraSkill(() => 0.625).generateQuestion({
       skillId: 'algebra-one-step',
       targetConcepts: ['algebra.one-step.division'],
       cognitiveDifficulty: 0,

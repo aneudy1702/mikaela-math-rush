@@ -1,11 +1,12 @@
 import type { Answer, MathSkill, Question, QuestionRequest, Result } from '../../contracts'
-import { poolWithoutShown } from '../freshPool'
 import {
   ALGEBRA_ITEMS,
   ALGEBRA_SKILL_ID,
   algebraItemsFor,
   type AlgebraItem,
 } from './catalog'
+
+const ADDITION_CONCEPT = 'algebra.one-step.addition'
 
 let questionSeq = 0
 
@@ -50,14 +51,24 @@ function toQuestion(item: AlgebraItem, difficulty: number): Question {
 }
 
 export function createAlgebraSkill(rng: () => number = Math.random): MathSkill {
+  const shownAddition: string[] = []
   return {
     id: ALGEBRA_SKILL_ID,
     grade: 6,
     domain: 'operations-algebraic-thinking',
     generateQuestion(request: QuestionRequest): Question {
-      const available = poolWithoutShown(resolvePool(request), (item) => item.instanceKey, request.excludeInstanceKeys)
-      if (available.length === 0) throw new Error('Empty algebra pool')
+      const pool = resolvePool(request)
+      if (pool.length === 0) throw new Error('Empty algebra pool')
+      const additionPass = pool.every((item) => item.conceptId === ADDITION_CONCEPT)
+      let available = pool
+      if (additionPass) {
+        const shown = new Set(shownAddition)
+        const fresh = pool.filter((item) => !shown.has(item.instanceKey))
+        if (fresh.length > 0) available = fresh
+        else shownAddition.length = 0
+      }
       const item = available[Math.floor(rng() * available.length)]!
+      if (additionPass) shownAddition.push(item.instanceKey)
       return toQuestion(item, request.cognitiveDifficulty)
     },
     conceptIdFor(question: Question): string {
