@@ -18,4 +18,6 @@ export {
   resetQuestionSeq,
 } from './plugin'
 
+export { CHOICE_COUNT, multiplicationChoices } from './choices'
+
 export { buildMultiplicationLevels } from './levels'

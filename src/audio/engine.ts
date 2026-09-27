@@ -1,6 +1,6 @@
 /**
  * Compatibility facade — gameplay should prefer `gameAudio` from AudioManager.
- * Kept so existing Keypad / App imports keep working.
+ * Kept so existing App imports keep working.
  */
 
 import { gameAudio } from './AudioManager'

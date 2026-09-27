@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { gameAssets } from '../assets'
+import { ChoicePad } from '../components/ChoicePad'
 import { FactProgress } from '../components/FactProgress'
-import { Keypad } from '../components/Keypad'
 import {
   PersistenceBanner,
   type PersistenceNoticeItem,
 } from '../components/PersistenceBanner'
-import type { LevelProgressFact, LevelSessionSnapshot } from '../engine'
+import {
+  multiplicationChoices,
+  type LevelProgressFact,
+  type LevelSessionSnapshot,
+} from '../engine'
 
 interface PlayScreenProps {
   snapshot: LevelSessionSnapshot
@@ -47,7 +51,6 @@ export function PlayScreen({
   muted,
   onToggleMute,
 }: PlayScreenProps) {
-  const [draft, setDraft] = useState('')
   const [locked, setLocked] = useState(false)
   const reveal = snapshot.reveal
   const question = snapshot.current?.question
@@ -83,20 +86,13 @@ export function PlayScreen({
         )
       : null
 
-  function appendDigit(digit: string) {
-    if (locked) return
-    setDraft((previous) => (previous.length >= 4 ? previous : previous + digit))
-  }
+  const choices = useMemo(
+    () => (question ? multiplicationChoices(question) : []),
+    [question],
+  )
 
-  function backspace() {
+  function choose(value: number) {
     if (locked) return
-    setDraft((previous) => previous.slice(0, -1))
-  }
-
-  function submit() {
-    if (locked || draft === '') return
-    const value = Number(draft)
-    if (!Number.isFinite(value)) return
     setLocked(true)
     onSubmit(value)
   }
@@ -210,7 +206,6 @@ export function PlayScreen({
             animate={{ opacity: 1, scale: 1, y: 0 }}
           >
             <h1 className="prompt-expression">{expression}</h1>
-            <div className={`answer-draft${draft ? '' : ' empty'}`}>{draft}</div>
           </motion.div>
         )}
 
@@ -227,11 +222,10 @@ export function PlayScreen({
       </div>
 
       {!reveal ? (
-        <Keypad
+        <ChoicePad
+          choices={choices}
           disabled={locked || snapshot.hidden}
-          onDigit={appendDigit}
-          onBackspace={backspace}
-          onEnter={submit}
+          onChoose={choose}
         />
       ) : null}
     </section>
