@@ -185,6 +185,8 @@ export const FRACTION_ITEMS: readonly FractionItem[] = [
   compareSameDenominator(fraction(1, 6), fraction(5, 6), 'core'),
   compareSameDenominator(fraction(2, 9), fraction(7, 9), 'wide'),
   compareSameNumerator(fraction(3, 8), fraction(3, 5)),
+  compareSameNumerator(fraction(2, 7), fraction(2, 3)),
+  compareSameNumerator(fraction(4, 6), fraction(4, 5)),
   compareSameNumerator(fraction(2, 9), fraction(2, 3)),
   compareSameNumerator(fraction(4, 10), fraction(4, 5)),
   equivalent(fraction(1, 2), fraction(2, 4), fraction(2, 3)),

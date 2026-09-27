@@ -1,4 +1,5 @@
 import type { Answer, MathSkill, Question, QuestionRequest, Result } from '../../contracts'
+import { poolWithoutShown } from '../freshPool'
 import {
   ALGEBRA_ITEMS,
   ALGEBRA_SKILL_ID,
@@ -54,9 +55,9 @@ export function createAlgebraSkill(rng: () => number = Math.random): MathSkill {
     grade: 6,
     domain: 'operations-algebraic-thinking',
     generateQuestion(request: QuestionRequest): Question {
-      const pool = resolvePool(request)
-      if (pool.length === 0) throw new Error('Empty algebra pool')
-      const item = pool[Math.floor(rng() * pool.length)]!
+      const available = poolWithoutShown(resolvePool(request), (item) => item.instanceKey, request.excludeInstanceKeys)
+      if (available.length === 0) throw new Error('Empty algebra pool')
+      const item = available[Math.floor(rng() * available.length)]!
       return toQuestion(item, request.cognitiveDifficulty)
     },
     conceptIdFor(question: Question): string {
