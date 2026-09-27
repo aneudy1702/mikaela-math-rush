@@ -53,7 +53,10 @@ export interface PlayerProgress {
 export interface XpContext {
   /** Level was completed before this session (replay). */
   levelCompletedBefore: boolean
-  /** Level is the progress level (lowest unlocked level not yet completed). */
+  /**
+   * Frontier of the skill being played: its lowest unlocked level not yet completed.
+   * Another skill's finished ladder does not set this.
+   */
   isProgressLevel: boolean
   /** First finish of this level+mode (pays full bonus even on a completed level). */
   firstFinishLevelMode: boolean
@@ -61,9 +64,9 @@ export interface XpContext {
   newlyMasteredFacts: number
   /** Level completed by play at the end of this session. */
   levelCompletedNow: boolean
-  /** A record (not baseline) was beaten this session. */
+  /** A record (not baseline) was beaten this session. Saving the record does not depend on this. */
   recordBeaten: boolean
-  /** Record-beaten XP not yet awarded today. */
+  /** Daily record XP bonus still available for this learner. Does not gate saving the record. */
   recordXpAvailableToday: boolean
 }
 

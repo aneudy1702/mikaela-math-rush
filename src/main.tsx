@@ -1,17 +1,46 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import { App } from './App'
-import { gameAudio } from './audio/AudioManager'
 
-// Decode every clip now so the first tap already sounds instantly.
-gameAudio.preload()
+const root = createRoot(document.getElementById('root')!)
+const params = new URLSearchParams(window.location.search)
+const proof = params.has('proof')
+const designGallery = params.has('design')
+const social = params.has('social')
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+if (social) {
+  void import('./social/SocialPreview').then(({ SocialPreview }) => {
+    root.render(
+      <StrictMode>
+        <SocialPreview />
+      </StrictMode>,
+    )
+  })
+} else if (proof) {
+  void import('./ui/answers/SharedPlayProof').then(({ SharedPlayProof }) => {
+    root.render(
+      <StrictMode>
+        <SharedPlayProof />
+      </StrictMode>,
+    )
+  })
+} else if (designGallery) {
+  void import('./ui/gallery/DesignGallery').then(({ DesignGallery }) => {
+    root.render(
+      <StrictMode>
+        <DesignGallery />
+      </StrictMode>,
+    )
+  })
+} else {
+  void import('./ui/v3/V3App').then(({ V3App }) => {
+    root.render(
+      <StrictMode>
+        <V3App />
+      </StrictMode>,
+    )
+  })
+}
 
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {

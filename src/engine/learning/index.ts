@@ -56,6 +56,7 @@ export {
   evaluateAdvancement,
   evaluateLevelCompletion,
   evidenceBufferEntryFor,
+  evidenceMarksView,
   factDisplayValue,
   evaluateMixedLevel,
   evaluateTableLevel,

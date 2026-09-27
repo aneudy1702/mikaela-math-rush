@@ -91,6 +91,11 @@ describe('D1 ladder', () => {
     ])
     expect(getLevel('L7').gatingFactIds).toEqual(['7x7', '7x8', '7x9'])
     expect(getLevel('L8').gatingFactIds).toEqual(['8x8', '8x9', '9x9'])
+    expect(getLevel('L7').gatingConceptIds).toEqual([
+      'multiplication.fact.7x7',
+      'multiplication.fact.7x8',
+      'multiplication.fact.7x9',
+    ])
   })
 
   it('uses canonical core IDs everywhere', () => {
@@ -134,7 +139,7 @@ describe('D1 ladder', () => {
   })
 
   it('throws for an unknown skill', () => {
-    expect(() => getCurriculum('division')).toThrow()
+    expect(() => getCurriculum('not-a-skill')).toThrow()
   })
 })
 

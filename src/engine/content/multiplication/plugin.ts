@@ -5,7 +5,7 @@ import type {
   QuestionRequest,
   Result,
 } from '../../contracts'
-import { canonicalFactId, isCanonicalFactId } from '../../contracts'
+import { canonicalFactId, isCanonicalFactId, multiplicationConceptId } from '../../contracts'
 import {
   CORE_FACTS,
   STRETCH_FACTS,
@@ -71,9 +71,12 @@ export function multiplicationConceptIdFor(question: Question): string {
 function toQuestion(fact: MultFact, presentAs: 'ab' | 'ba', difficulty: number): Question {
   const a = presentAs === 'ab' ? fact.a : fact.b
   const b = presentAs === 'ab' ? fact.b : fact.a
+  const conceptId = multiplicationConceptId(fact.factId)
   return {
     id: nextQuestionId(),
     skillId: MULTIPLICATION_SKILL_ID,
+    conceptIds: [conceptId],
+    instanceKey: conceptId,
     difficulty,
     prompt: { type: 'expression', expression: `${a} × ${b}` },
     answerType: 'numeric',

@@ -18,6 +18,8 @@ import type {
 import { RULES } from '../contracts'
 
 export const RAW_LOG_ENCODING_VERSION = 1
+/** Household attempts. Version 1 rows stay readable and do not grow V3 fields. */
+export const RAW_LOG_ENCODING_VERSION_V3 = 2
 
 const MODES: readonly SessionMode[] = ['quick', 'practice', 'rush']
 const SOURCES: readonly AttemptSource[] = [
@@ -144,6 +146,34 @@ export function encodeRawLog(log: RawLog): EncodedRawLog {
   return { v: RAW_LOG_ENCODING_VERSION, ids, s, a }
 }
 
+function opt(value: string | undefined): string | null {
+  return value ?? null
+}
+
+/**
+ * V3 attempt encoding. Same prefix as version 1, then the fields version 1 dropped:
+ * learnerId, skillId, conceptIds, instanceKey, selectedChoiceId, misconceptionId.
+ * Missing fields are stored as null and omitted on decode. Nothing is invented.
+ */
+export function encodeRawLogV3(log: RawLog): EncodedRawLog {
+  const encoded = encodeRawLog(log)
+  encoded.v = RAW_LOG_ENCODING_VERSION_V3
+  encoded.a = log.attempts.map((attempt, index) => {
+    const row = encoded.a[index]!
+    const concepts = attempt.conceptIds ? [...attempt.conceptIds] : null
+    return [
+      ...row,
+      opt(attempt.learnerId),
+      opt(attempt.skillId),
+      concepts,
+      opt(attempt.instanceKey),
+      opt(attempt.selectedChoiceId),
+      opt(attempt.misconceptionId),
+    ] as unknown as EncodedAttempt
+  })
+  return encoded
+}
+
 function num(v: unknown): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) {
     throw new Error('raw log: expected number')
@@ -200,8 +230,9 @@ function decodeAttempt(
   r: unknown[],
   atMs: number,
   idAt: (i: unknown) => string,
+  version: number,
 ): RawAttempt {
-  return {
+  const attempt: RawAttempt = {
     factId: str(r[0]),
     a: numOrNull(r[1]),
     b: numOrNull(r[2]),
@@ -216,6 +247,19 @@ function decodeAttempt(
     source: uncode(SOURCES, r[11]),
     isReplay: flag(r[12]),
   }
+  if (version !== RAW_LOG_ENCODING_VERSION_V3) return attempt
+  const learnerId = r[13] == null ? undefined : str(r[13])
+  const skillId = r[14] == null ? undefined : str(r[14])
+  const instanceKey = r[16] == null ? undefined : str(r[16])
+  const selectedChoiceId = r[17] == null ? undefined : str(r[17])
+  const misconceptionId = r[18] == null ? undefined : str(r[18])
+  if (learnerId !== undefined) attempt.learnerId = learnerId
+  if (skillId !== undefined) attempt.skillId = skillId
+  if (r[15] != null) attempt.conceptIds = arr(r[15]).map(str)
+  if (instanceKey !== undefined) attempt.instanceKey = instanceKey
+  if (selectedChoiceId !== undefined) attempt.selectedChoiceId = selectedChoiceId
+  if (misconceptionId !== undefined) attempt.misconceptionId = misconceptionId
+  return attempt
 }
 
 function idLookup(ids: readonly (string | undefined)[]): (i: unknown) => string {
@@ -230,7 +274,10 @@ function idLookup(ids: readonly (string | undefined)[]): (i: unknown) => string 
 export function decodeRawLog(value: unknown): RawLog {
   if (!value || typeof value !== 'object') throw new Error('raw log: not an object')
   const enc = value as Partial<EncodedRawLog>
-  if (enc.v !== RAW_LOG_ENCODING_VERSION) throw new Error('raw log: bad version')
+  if (enc.v !== RAW_LOG_ENCODING_VERSION && enc.v !== RAW_LOG_ENCODING_VERSION_V3) {
+    throw new Error('raw log: bad version')
+  }
+  const version = enc.v
   const idAt = idLookup(arr(enc.ids).map(str))
   const sessions = arr(enc.s).map((row) => decodeSession(row, idAt))
   let prevAt = 0
@@ -238,7 +285,7 @@ export function decodeRawLog(value: unknown): RawLog {
     const r = arr(row)
     const atMs = prevAt + num(r[6])
     prevAt = atMs
-    return decodeAttempt(r, atMs, idAt)
+    return decodeAttempt(r, atMs, idAt, version)
   })
   return { attempts, sessions }
 }
@@ -266,7 +313,13 @@ export function salvageRawLog(value: unknown): RawLogSalvage {
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return nothing
   const enc = value as Partial<EncodedRawLog>
-  if (enc.v !== RAW_LOG_ENCODING_VERSION || !Array.isArray(enc.ids)) return nothing
+  if (
+    (enc.v !== RAW_LOG_ENCODING_VERSION && enc.v !== RAW_LOG_ENCODING_VERSION_V3) ||
+    !Array.isArray(enc.ids)
+  ) {
+    return nothing
+  }
+  const version = enc.v
   const idAt = idLookup(
     (enc.ids as unknown[]).map((id) => (typeof id === 'string' ? id : undefined)),
   )
@@ -299,7 +352,7 @@ export function salvageRawLog(value: unknown): RawLogSalvage {
       }
       prevAt += delta
       try {
-        attempts.push(decodeAttempt(row as unknown[], prevAt, idAt))
+        attempts.push(decodeAttempt(row as unknown[], prevAt, idAt, version))
       } catch {
         droppedAttempts++
       }

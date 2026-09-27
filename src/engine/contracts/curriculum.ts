@@ -10,17 +10,31 @@ export type LevelKind = 'table' | 'mixed' | 'speed'
 
 export interface LevelDef {
   id: LevelId
+  skillId: string
   /** 1-based position on the ladder. `id === levelIdOf(index)`. */
   index: number
   kind: LevelKind
   title: string
-  /** Times tables this level presents (empty for mixed/speed). */
+  /** Concepts this level owns (gating plus intro). */
+  conceptIds: string[]
+  /** Owned concepts that count toward completion rule R1. */
+  gatingConceptIds: string[]
+  /** Owned concepts shown and practiced but not gating. */
+  introConceptIds: string[]
+  /**
+   * Times tables this level presents (empty for mixed/speed).
+   * Multiplication-only until evidence is keyed by concept id.
+   */
   tables: number[]
   /** Every canonical fact presented at this level (L9/L10: all 55). */
   tableFactIds: string[]
   /** Facts whose owner level is this one (each core fact has exactly one owner). */
   ownedFactIds: string[]
-  /** Owned facts that count toward completion rule R1. */
+  /**
+   * Owned facts that count toward completion rule R1.
+   * Table completion still reads this while evidence keys are fact ids.
+   * `gatingConceptIds` is the same membership in concept-id form.
+   */
   gatingFactIds: string[]
   /** Owned facts shown and practiced but not gating (only ×1, at L1). */
   introFactIds: string[]

@@ -33,6 +33,19 @@ export {
   type StoredProfileParse,
 } from './storage'
 
+export { applyHouseholdMigration, type HouseholdMigrationInput, type HouseholdMigrationResult } from './householdMigration'
+
+export {
+  HOUSEHOLD_NOTICES_KEY,
+  HOUSEHOLD_QUARANTINE_PREFIX,
+  loadHousehold,
+  saveHousehold,
+  upsertLearner,
+  type HouseholdLoadResult,
+  type HouseholdNotice,
+  type HouseholdSaveResult,
+} from './householdStore'
+
 export {
   INFERRED_SESSION_PREFIX,
   isV1ProfileLike,

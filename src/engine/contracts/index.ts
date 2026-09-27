@@ -1,5 +1,6 @@
 export type {
   Answer,
+  AnswerChoice,
   AnswerType,
   FactAttempt,
   FactRecord,
@@ -119,3 +120,20 @@ export type {
   LearnerProfileV2,
   ProfileMigrationInfo,
 } from './profile'
+
+export {
+  HOUSEHOLD_STORAGE_KEY,
+  evidenceInstanceKey,
+  multiplicationConceptId,
+  type ConceptLevel,
+  type ConceptRelationship,
+  type ConceptRelationshipKind,
+  type DistractorContext,
+  type EvidenceMarksView,
+  type Household,
+  type HouseholdMigrationStamp,
+  type LastActivePath,
+  type LearnerProfileV3,
+  type LearningConcept,
+  type LocalLearnerIdentity,
+} from './platform'

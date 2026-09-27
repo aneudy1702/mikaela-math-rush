@@ -355,6 +355,23 @@ describe('LevelSessionEngine — records (D3)', () => {
     expect(profile).toEqual(snapshot)
   })
 
+  it('saves a later record the same day after the XP bonus is spent', () => {
+    let profile = createEmptyProfile('K', T0)
+    profile = play(profile, { day: 1, seed: 1, latency: () => 3000 }).profile
+    const first = play(profile, { day: 2, seed: 2, latency: () => 2000 })
+    profile = first.profile
+    expect(first.summary.xp.recordBeaten).toBe(RULES.xp.recordBeaten)
+    const dayKey = profile.player.lastRecordXpDayKey
+
+    const second = play(profile, { day: 2, seed: 3, latency: () => 1000 })
+    const record = Object.values(second.profile.records)[0]!
+    expect(second.summary.record.isNewRecord).toBe(true)
+    expect(second.summary.xp.recordBeaten).toBe(0)
+    expect(second.profile.player.lastRecordXpDayKey).toBe(dayKey)
+    expect(record.bestMs).toBe(second.summary.elapsedMs)
+    expect(record.timesBeaten).toBe(2)
+  })
+
   it('records are keyed by level + mode: a practice run sets its own baseline', () => {
     let profile = createEmptyProfile('K', T0)
     profile = play(profile, { day: 1, seed: 1 }).profile
