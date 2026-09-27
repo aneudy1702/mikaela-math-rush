@@ -1,6 +1,6 @@
 # Math Rush V3 — Migration
 
-Status: **ACCEPTED REQUIREMENT (O10).** Wave 0B adds the household stamp and the entry point that refuses to rerun after that stamp, including after the migrated learner is deleted. Rewriting stored fact ids to concept ids waits until the running engine reads evidence by concept id. This is not a side effect of loading today's V2 save.
+Status: **WAVE 1.** The household store maps a V2 profile into a V3 learner and stamps the household. Fact ids in that copy become concept ids. The V2 blob is not written or deleted. The running kid app still loads the V2 profile, so Multiplication completion keeps its fact-id adapter until that app reads the household.
 
 ---
 

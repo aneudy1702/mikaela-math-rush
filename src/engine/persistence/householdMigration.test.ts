@@ -46,7 +46,7 @@ describe('applyHouseholdMigration', () => {
     const learner = first.household.learners.mikaela!
     expect(learner.player.xp).toBe(40)
     expect(learner.skills.multiplication).toEqual(v2.progress)
-    expect(learner.rawLog.attempts[0]?.factId).toBe('7x8')
+    expect(learner.rawLog.attempts[0]?.factId).toBe('multiplication.fact.7x8')
     expect(learner.rawLog.attempts[0]?.instanceKey).toBe('multiplication.fact.7x8')
     expect(v2.rawLog.attempts[0]?.instanceKey).toBeUndefined()
 

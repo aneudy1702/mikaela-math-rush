@@ -2,14 +2,21 @@
  * V2 → V3 household entry point.
  *
  * The stamp decides whether migration runs. A missing learner does not.
- * Stored fact ids stay canonical (`7x8`) because the running engine still
- * reads evidence that way. Copied attempts gain `instanceKey` so a later
- * fold suppresses the same instances. The V2 profile object is not mutated.
+ * The V2 profile object is not mutated. The V3 copy maps canonical fact ids
+ * to concept ids and copies mastery fields. It does not recompute status.
  */
 
-import type { Household, LearnerProfileV3 } from '../contracts'
+import type {
+  EvidenceBufferEntry,
+  FactEvidence,
+  Household,
+  LearnerProfileV3,
+  RawLog,
+  SkillProgress,
+} from '../contracts'
 import { multiplicationConceptId } from '../contracts'
 import type { LearnerProfileV2 } from '../contracts/profile'
+import type { PendingReinforcement } from '../contracts/types'
 
 export interface HouseholdMigrationInput {
   household: Household | null
@@ -27,6 +34,48 @@ export interface HouseholdMigrationResult {
 
 const EMPTY_HOUSEHOLD: Household = { activeLearnerId: null, learners: {} }
 
+function mapFactId(factId: string): string {
+  return multiplicationConceptId(factId)
+}
+
+function mapEvidence(evidence: FactEvidence): FactEvidence {
+  const factId = mapFactId(evidence.factId)
+  return { ...evidence, factId }
+}
+
+function mapProgress(progress: SkillProgress): SkillProgress {
+  const factEvidence: Record<string, FactEvidence> = {}
+  for (const [factId, evidence] of Object.entries(progress.factEvidence)) {
+    factEvidence[mapFactId(factId)] = mapEvidence(evidence)
+  }
+  const evidence: Record<string, EvidenceBufferEntry[]> = {}
+  for (const [levelId, entries] of Object.entries(progress.evidence)) {
+    evidence[levelId] = entries.map((entry) => ({ ...entry, factId: mapFactId(entry.factId) }))
+  }
+  return { ...progress, factEvidence, evidence }
+}
+
+function mapRawLog(log: RawLog): RawLog {
+  return {
+    attempts: log.attempts.map((attempt) => ({
+      ...attempt,
+      factId: mapFactId(attempt.factId),
+      instanceKey: attempt.instanceKey ?? mapFactId(attempt.factId),
+    })),
+    sessions: log.sessions.map((session) => ({
+      ...session,
+      discardedOnHide: session.discardedOnHide.map((discarded) => ({
+        ...discarded,
+        factId: mapFactId(discarded.factId),
+      })),
+    })),
+  }
+}
+
+function mapPending(items: readonly PendingReinforcement[]): PendingReinforcement[] {
+  return items.map((item) => ({ ...item, factId: mapFactId(item.factId) }))
+}
+
 export function applyHouseholdMigration(input: HouseholdMigrationInput): HouseholdMigrationResult {
   const household = input.household
   if (household?.migration?.completed) {
@@ -39,19 +88,17 @@ export function applyHouseholdMigration(input: HouseholdMigrationInput): Househo
 
   const skillId = input.skillId ?? 'multiplication'
   const v2 = structuredClone(input.v2Profile)
-  for (const attempt of v2.rawLog.attempts) {
-    if (!attempt.instanceKey) attempt.instanceKey = multiplicationConceptId(attempt.factId)
-  }
+  const progress = mapProgress(v2.progress)
 
   const learner: LearnerProfileV3 = {
     identity: { id: input.learnerId, displayName: v2.learnerName },
-    lastActivePath: { skillId, levelId: v2.progress.currentLevelId },
-    skills: { [skillId]: v2.progress },
+    lastActivePath: { skillId, levelId: progress.currentLevelId },
+    skills: { [skillId]: progress },
     player: v2.player,
     records: v2.records,
-    rawLog: v2.rawLog,
+    rawLog: mapRawLog(v2.rawLog),
     sessionLog: v2.sessionLog,
-    pendingReinforcements: v2.pendingReinforcements,
+    pendingReinforcements: mapPending(v2.pendingReinforcements),
   }
 
   const learners = { ...(household?.learners ?? {}) }
