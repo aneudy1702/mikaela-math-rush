@@ -60,7 +60,7 @@ Wave 7   Kid test: Mikaela, Adrian, friends
 | 3 | One play loop runs a scripted session for every shipped skill. XP and records still do not write academic state. |
 | 4 | Home shows a different continue-path for a Grade 3 profile and an older profile. Phone and desktop. |
 | 5 | Social screens render from fixtures and perform no network I/O. |
-| 6 | Upgrade from a real V2 save in the browser. PWA name is Math Rush. V2 key still present afterward. |
+| 6 | Upgrade from a real V2 save in the browser. PWA name is Math Rush. V2 key still present afterward. Starts at `1fa09fb` on `v3/integration`, after the verified One-Step Addition variety fix. |
 | 7 | Human. Findings become new decisions, not silent threshold edits. |
 
 ---
