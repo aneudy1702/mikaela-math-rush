@@ -8,22 +8,25 @@ const root = createRoot(document.getElementById('root')!)
 const params = new URLSearchParams(window.location.search)
 const proof = params.has('proof')
 const designGallery = params.has('design')
-const v3 = params.has('v3')
 const social = params.has('social')
+// Local Wave 6 rehearsal only. `?v2` keeps the kid app. Do not treat `/` → V3 as released.
+const kidV2 = params.has('v2')
+
+function renderV3() {
+  void import('./ui/v3/V3App').then(({ V3App }) => {
+    root.render(
+      <StrictMode>
+        <V3App />
+      </StrictMode>,
+    )
+  })
+}
 
 if (social) {
   void import('./social/SocialPreview').then(({ SocialPreview }) => {
     root.render(
       <StrictMode>
         <SocialPreview />
-      </StrictMode>,
-    )
-  })
-} else if (v3) {
-  void import('./ui/v3/V3App').then(({ V3App }) => {
-    root.render(
-      <StrictMode>
-        <V3App />
       </StrictMode>,
     )
   })
@@ -43,7 +46,7 @@ if (social) {
       </StrictMode>,
     )
   })
-} else {
+} else if (kidV2) {
   // Decode every clip now so the first tap already sounds instantly.
   gameAudio.preload()
   root.render(
@@ -51,6 +54,8 @@ if (social) {
       <App />
     </StrictMode>,
   )
+} else {
+  renderV3()
 }
 
 if ('serviceWorker' in navigator) {
