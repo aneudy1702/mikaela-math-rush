@@ -1,6 +1,6 @@
 # Math Rush V3 — Product Brief
 
-Status: **WAVE 0A COMPLETE. WAVE 0B CONTRACTS IN PLACE.** O5 is closed. The app still loads the V2 profile. Division, Fractions, Algebra, and UI are not started.
+Status: **WAVE 0A COMPLETE. WAVE 0B ACCEPTED. WAVE 1 IN PROGRESS.** O5 is closed. The kid app still loads the V2 profile. Division, Fractions, Algebra, and finished V3 screens are not started.
 
 V2 remains the product kids can keep using. V3 is a new branch and a new brief. V2 thresholds, mastery rules, and the deployed app stay as they are. See [docs/v2/DECISIONS.md](../v2/DECISIONS.md).
 

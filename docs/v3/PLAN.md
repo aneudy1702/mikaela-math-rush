@@ -1,6 +1,8 @@
 # Math Rush V3 — Plan
 
-Status: **WAVE 0A COMPLETE. WAVE 0B CONTRACTS IN PLACE.** The live save is still the V2 profile. No Division, Fractions, Algebra, or UI.
+Status: **WAVE 1 IN PROGRESS.** Curriculum registry, household persistence, and the design-system foundation. No Division, Fractions, Algebra, or finished V3 screens.
+
+`gatingConceptIds` is the V3 curriculum contract. Multiplication completion still adapts through `gatingFactIds` until evidence is stored by concept id. That removal belongs to the engine and persistence integration. New skills do not use the fact-id path.
 
 V2 stays on its own line ([docs/v2/PLAN.md](../v2/PLAN.md)). V3 work lands on a new branch. It does not retune V2, and it does not deploy over the app kids are testing.
 

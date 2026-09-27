@@ -4,14 +4,26 @@ import './index.css'
 import { App } from './App'
 import { gameAudio } from './audio/AudioManager'
 
-// Decode every clip now so the first tap already sounds instantly.
-gameAudio.preload()
+const root = createRoot(document.getElementById('root')!)
+const designGallery = new URLSearchParams(window.location.search).has('design')
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+if (designGallery) {
+  void import('./ui/gallery/DesignGallery').then(({ DesignGallery }) => {
+    root.render(
+      <StrictMode>
+        <DesignGallery />
+      </StrictMode>,
+    )
+  })
+} else {
+  // Decode every clip now so the first tap already sounds instantly.
+  gameAudio.preload()
+  root.render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
 
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
