@@ -100,11 +100,17 @@ function startQuickRun(): void {
   fireEvent.click(screen.getByRole('button', { name: /Quick 10/i }))
 }
 
-function submitWithKeyboard(value: number): void {
-  for (const digit of String(value)) {
-    fireEvent.keyDown(window, { key: digit })
-  }
-  fireEvent.keyDown(window, { key: 'Enter' })
+function submitChoice(value: number): void {
+  fireEvent.click(screen.getByRole('button', { name: `Answer ${value}` }))
+}
+
+function submitWrongChoice(): void {
+  const correct = answerOnScreen()
+  const wrong = screen
+    .getAllByRole('button', { name: /^Answer \d+$/ })
+    .find((button) => button.getAttribute('aria-label') !== `Answer ${correct}`)
+  if (!wrong) throw new Error('No wrong answer choice on screen')
+  fireEvent.click(wrong)
 }
 
 function answerOnScreen(): number {
@@ -116,7 +122,7 @@ function answerOnScreen(): number {
 
 function finishPerfectQuickRun(): void {
   for (let answer = 0; answer < 10; answer += 1) {
-    submitWithKeyboard(answerOnScreen())
+    submitChoice(answerOnScreen())
   }
 }
 
@@ -176,7 +182,7 @@ describe('T8 app wiring and screens', () => {
     renderHarness(harness)
     startQuickRun()
 
-    submitWithKeyboard(0)
+    submitWrongChoice()
     expect(screen.getByText('Got it')).toBeInTheDocument()
     expect(document.body).not.toHaveTextContent(/\bNext\b/i)
 
@@ -184,7 +190,7 @@ describe('T8 app wiring and screens', () => {
     expect(screen.queryByText('Got it')).not.toBeInTheDocument()
     expect(document.querySelector('.prompt-expression')).toBeInTheDocument()
 
-    submitWithKeyboard(0)
+    submitWrongChoice()
     expect(screen.getByText('Got it')).toBeInTheDocument()
     expect(document.body).not.toHaveTextContent(/\bNext\b/i)
 

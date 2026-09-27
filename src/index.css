@@ -761,6 +761,29 @@ img {
   opacity: 0.45;
 }
 
+.choice-pad {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+.choice-caption {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.key.choice {
+  min-height: 84px;
+  font-size: 2rem;
+}
+
 /* —— Placement intro —— */
 .placement-intro {
   flex: 1;
@@ -2005,12 +2028,18 @@ button:focus-visible,
     margin-top: 8px;
   }
 
-  .keypad {
+  .keypad,
+  .choice-pad {
     gap: 8px;
   }
 
   .key {
     min-height: 52px;
+  }
+
+  .key.choice {
+    min-height: 68px;
+    font-size: 1.7rem;
   }
 
   .results-hero {

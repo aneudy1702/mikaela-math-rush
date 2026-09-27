@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { gameAssets } from '../assets'
-import { Keypad } from '../components/Keypad'
+import { ChoicePad } from '../components/ChoicePad'
 import {
   PersistenceBanner,
   type PersistenceNoticeItem,
@@ -11,6 +11,7 @@ import {
   applyPlacementResult,
   emptyFactEvidence,
   generateForFact,
+  multiplicationChoices,
   getLevel,
   nextProbe,
   placementRawAttempt,
@@ -100,9 +101,12 @@ export function PlacementScreen({
   const [round, setRound] = useState<PlacementRound | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [workingProfile, setWorkingProfile] = useState<LearnerProfile>(profile)
-  const [draft, setDraft] = useState('')
   const [locked, setLocked] = useState(false)
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null)
+  const choices = useMemo(
+    () => (round ? multiplicationChoices(round.question) : []),
+    [round],
+  )
   const [pendingAdvance, setPendingAdvance] = useState<PendingAdvance | null>(null)
   const [completion, setCompletion] = useState<PlacementCompletion | null>(null)
   const advanceTimer = useRef<number | null>(null)
@@ -178,7 +182,6 @@ export function PlacementScreen({
   }
 
   function advance(state: PlacementState, answeredProfile: LearnerProfile) {
-    setDraft('')
     setLocked(false)
     setFeedback(null)
     setPendingAdvance(null)
@@ -196,9 +199,8 @@ export function PlacementScreen({
     advance(pendingAdvance.state, pendingAdvance.profile)
   }
 
-  function submit() {
-    if (!placement || !round || !sessionId || locked || draft === '') return
-    const given = Number(draft)
+  function submit(given: number) {
+    if (!placement || !round || !sessionId || locked) return
     if (!Number.isFinite(given)) return
     setLocked(true)
 
@@ -420,19 +422,13 @@ export function PlacementScreen({
         ) : (
           <div className="problem-card">
             <h2 className="prompt-expression">{expression}</h2>
-            <div className={`answer-draft${draft ? '' : ' empty'}`}>{draft}</div>
             {feedback?.correct ? <div className="placement-correct">Nice!</div> : null}
           </div>
         )}
       </div>
 
       {!feedback || feedback.correct ? (
-        <Keypad
-          disabled={locked}
-          onDigit={(digit) => setDraft((previous) => (previous.length >= 4 ? previous : previous + digit))}
-          onBackspace={() => setDraft((previous) => previous.slice(0, -1))}
-          onEnter={submit}
-        />
+        <ChoicePad choices={choices} disabled={locked} onChoose={submit} />
       ) : null}
     </section>
   )
