@@ -1,0 +1,305 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><title>Math Rush</title><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&amp;family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#0f131d;color:#dfe2f1;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-dim": "#0f131d", "tertiary": "#fff5de", "surface-container": "#1c1f2a", "error-container": "#93000a", "secondary-fixed": "#efdbff", "on-secondary-container": "#dcb7ff", "primary-container": "#00f0ff", "on-tertiary": "#3a3000", "secondary": "#dcb8ff", "surface-container-high": "#262a35", "surface-tint": "#00dbe9", "on-error-container": "#ffdad6", "outline-variant": "#3b494b", "on-tertiary-fixed": "#221b00", "on-primary-fixed": "#002022", "error": "#ffb4ab", "inverse-on-surface": "#2c303b", "on-surface-variant": "#b9cacb", "on-secondary-fixed": "#2c0051", "outline": "#849495", "on-tertiary-fixed-variant": "#544600", "surface-variant": "#313540", "on-primary-fixed-variant": "#004f54", "tertiary-fixed-dim": "#e9c400", "on-background": "#dfe2f1", "on-tertiary-container": "#705d00", "inverse-primary": "#006970", "on-secondary": "#480081", "primary-fixed": "#7df4ff", "on-primary-container": "#006970", "surface-container-low": "#171b26", "primary": "#dbfcff", "primary-fixed-dim": "#00dbe9", "surface-bright": "#353944", "secondary-container": "#7701d0", "on-error": "#690005", "surface": "#0f131d", "surface-container-highest": "#313540", "inverse-surface": "#dfe2f1", "background": "#0f131d", "secondary-fixed-dim": "#dcb8ff", "on-primary": "#00363a", "on-secondary-fixed-variant": "#6700b5", "tertiary-fixed": "#ffe16d", "tertiary-container": "#ffd700", "surface-container-lowest": "#0a0e18", "on-surface": "#dfe2f1" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-xl": "2rem", "gutter": "0.75rem", "space-xs": "0.25rem", "space-sm": "0.5rem", "margin": "1rem", "space-md": "0.875rem", "space-lg": "1.25rem" }, "fontFamily": { "headline-xl-mobile": ["Outfit"], "body-md": ["Outfit"], "body-lg": ["Outfit"], "math-display": ["Space Grotesk"], "headline-lg-mobile": ["Outfit"], "headline-xl": ["Outfit"], "headline-lg": ["Outfit"], "headline-md": ["Outfit"], "label-badge": ["Space Grotesk"], "label-hud": ["Space Grotesk"], "math-display-mobile": ["Space Grotesk"] }, "fontSize": { "headline-xl-mobile": ["36px", { "lineHeight": "40px", "fontWeight": "900" }], "body-md": ["15px", { "lineHeight": "22px", "fontWeight": "500" }], "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "600" }], "math-display": ["56px", { "lineHeight": "60px", "fontWeight": "700" }], "headline-lg-mobile": ["26px", { "lineHeight": "32px", "fontWeight": "800" }], "headline-xl": ["48px", { "lineHeight": "52px", "fontWeight": "900" }], "headline-lg": ["32px", { "lineHeight": "38px", "fontWeight": "800" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "700" }], "label-badge": ["13px", { "lineHeight": "16px", "fontWeight": "700" }], "label-hud": ["11px", { "lineHeight": "14px", "fontWeight": "700" }], "math-display-mobile": ["40px", { "lineHeight": "44px", "fontWeight": "700" }] } } } };</script></head><body class="bg-surface text-on-surface font-body-md flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface-container-lowest/80 backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] pt-safe"><div class="h-16 px-margin flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm min-w-0"><button aria-label="Leave Room or Return" class="w-11 h-11 rounded-lg bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-primary-container transition-colors shrink-0" onclick="history.back()"><span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span></button><img alt="Math Rush Logo" class="h-8 w-auto object-contain shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_57iGPciSP21e-9paglQF_I7fGaZjOpvRCSYOsS6UAGzoTWMKOYNA8vi67Jf_MzUlIIVPF9vIS4wXw4AcyZb6u5LhPY_0i_n3D9-0czuLIFM6zJwtNKf_O67od-EM9_ZbM-LNS86kFZ9eB1RG6sY0qoGdqNMj8HqBe6QNayYJeWXZiGfeQCxJeh85oxDxdMBUhlGdzinawFrtgoPpLAtxjz-jlWtswnWsjBHGsQy4c6sklCNnzBMN"><div class="flex flex-col min-w-0"><h1 class="text-primary-container font-headline-md text-headline-md tracking-wider uppercase truncate">Math Rush</h1><span class="text-secondary font-label-hud text-label-hud uppercase tracking-widest">PODIUM</span></div></div><div class="flex items-center gap-space-xs shrink-0"><button aria-label="Mute SFX" class="w-11 h-11 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-colors"><span class="material-symbols-outlined text-[20px]">volume_up</span></button><button aria-label="Close Room" class="w-11 h-11 rounded-full bg-error-container/40 hover:bg-error-container flex items-center justify-center text-error hover:text-on-error transition-colors" onclick="history.back()"><span class="material-symbols-outlined text-[20px]">close</span></button><div class="relative p-0.5 rounded-full bg-gradient-to-tr from-primary-container to-secondary-container"><img alt="Math Rush Logo" class="h-8 w-auto object-contain shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_57iGPciSP21e-9paglQF_I7fGaZjOpvRCSYOsS6UAGzoTWMKOYNA8vi67Jf_MzUlIIVPF9vIS4wXw4AcyZb6u5LhPY_0i_n3D9-0czuLIFM6zJwtNKf_O67od-EM9_ZbM-LNS86kFZ9eB1RG6sY0qoGdqNMj8HqBe6QNayYJeWXZiGfeQCxJeh85oxDxdMBUhlGdzinawFrtgoPpLAtxjz-jlWtswnWsjBHGsQy4c6sklCNnzBMN"></div></div></div></header><main class="flex flex-col relative w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full pb-safe">
+<!-- Interactive Canvas Particle Layer -->
+<div class="relative w-full overflow-hidden px-margin py-space-md">
+<!-- Neon Burst Aura behind the podium stage -->
+<div class="absolute -top-10 left-1/2 -translate-x-1/2 w-80 h-72 bg-gradient-to-b from-primary-container/20 via-secondary-container/20 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+<!-- Celebration Header & Room Subtitle -->
+<div class="relative z-10 flex flex-col items-center text-center mb-space-lg">
+<div class="inline-flex items-center gap-space-xs bg-surface-container-high px-space-md py-1 rounded-full shadow-md mb-space-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-label-hud text-label-hud text-primary tracking-widest uppercase">Room 482 917 • Multiples of 3 Sprint</span>
+</div>
+<h2 class="font-headline-xl-mobile text-headline-xl-mobile text-primary tracking-tight drop-shadow-[0_0_24px_rgba(0,240,255,0.45)]">
+        RACE FINISHED! 🏁
+      </h2>
+<div class="inline-flex items-center gap-space-xs mt-1 bg-surface-container-low px-space-md py-1 rounded-full text-secondary font-label-badge text-label-badge shadow-inner">
+<span class="material-symbols-outlined text-[16px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="">Accuracy-First Scoring Engine Active</span>
+</div>
+</div>
+<!-- Top 3 Podium Stage -->
+<div class="relative z-10 w-full bg-surface-container/60 backdrop-blur-xl rounded-xl p-space-md shadow-2xl mb-space-lg">
+<!-- Accuracy Over Speed Banner Note -->
+<div class="flex items-center justify-between bg-surface-container-lowest/80 px-space-md py-1.5 rounded-lg mb-space-lg">
+<span class="font-label-hud text-label-hud text-on-surface-variant uppercase flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary-container">speed</span>
+          Rule: Precision beats reckless velocity
+        </span>
+<span class="font-label-badge text-label-badge text-tertiary-container font-math-display">100% = Podium Lock</span>
+</div>
+<!-- Pedestal Flex Layout -->
+<div class="flex items-end justify-center gap-space-xs pt-space-md">
+<!-- 2nd Place: Adrian (Silver) -->
+<div class="flex-1 flex flex-col items-center min-w-0">
+<div class="relative mb-space-xs flex flex-col items-center">
+<div class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center shadow-lg relative p-0.5 bg-gradient-to-b from-slate-200 to-slate-400">
+<img class="w-full h-full rounded-full object-cover" data-alt="Playful 3D cartoon racing avatar of a young energetic boy named Adrian with spiky electric blue tipped hair, wearing futuristic visor sunglasses pushed up on forehead, neon turquoise tech hoodie, joyful arcade style illustration" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApB-Lvq9Cc9AS1FO-rnAH52DwkXFQjg-wnuUNyW6LV9LFyJRGzPlR3mjA4SQQx1Qck13k3iMIhEJ5Eq8TT_-9zUbm-RXa0RQYE8vqPl9RqRlkJX5inUwHwMbCcw_V94YF_13Ty9kt5ZuLTRPR0otTIMNAZeAeX047Sj85P2D-CVvwEz2ryM_hIUeGFNLNyQZHxVThKv3TnpULprKMa0ZQ_CRecIMAsbevu7pPNLGpvyWSRpG4S_ANd">
+</div>
+<div class="absolute -bottom-2 bg-slate-300 text-on-primary-fixed px-2 py-0.5 rounded-full font-label-badge text-label-badge shadow-md flex items-center gap-0.5">
+<span class="">🥈</span> 2nd
+            </div>
+</div>
+<span class="font-body-lg text-body-lg text-on-surface truncate w-full text-center mt-1">Adrian</span>
+<span class="font-label-hud text-label-hud text-primary-container font-math-display">100% ACC</span>
+<span class="font-label-hud text-label-hud text-on-surface-variant">36.4s</span>
+<!-- Silver Pedestal Block -->
+<div class="w-full h-24 mt-space-xs rounded-t-lg bg-surface-container-high flex flex-col items-center justify-start pt-2 shadow-inner">
+<div class="w-7 h-7 rounded-full bg-slate-400/30 flex items-center justify-center font-headline-md text-headline-md text-slate-200">
+              2
+            </div>
+</div>
+</div>
+<!-- 1st Place: Mikaela (Gold Champion Pedestal) -->
+<div class="flex-1 flex flex-col items-center min-w-0 -translate-y-2">
+<!-- Crown Icon with Bounce Aura -->
+<div class="text-tertiary-container animate-bounce mb-0.5">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div class="relative mb-space-xs flex flex-col items-center">
+<div class="w-18 h-18 rounded-full p-1 bg-gradient-to-tr from-tertiary-container via-primary-container to-secondary-container shadow-[0_0_24px_rgba(255,215,0,0.5)]">
+<img alt="Arcade mobile game 3D avatar portrait of Mikaela" class="w-16 h-16 rounded-full object-cover block" src="https://lh3.googleusercontent.com/aida/AEtjO1VqdiWC2nVfgudir9gD_-TWw_DGZk3RvBy3pMazjh8JoZNQznenxglpxZK0SBPLnUIx4Bf6x_3U264kTkXDdeLsiQi4iyIIUP8NYLgAkdc814pjNcHaKWhR1MvVFCHQJ870EnaHV8HzT-kVVdzeGQ5PAcTbAKIfY_fHxyt-SmIuMrJCPikQbv907TimuJJzUSXdpKGPuAqnCrUDkEBbJ8LdfXNDi7QeIiqXkXUha82Y4NY39e9ZqqZr27s">
+</div>
+<div class="absolute -bottom-2 bg-gradient-to-r from-tertiary-container to-tertiary-fixed text-on-tertiary-fixed px-2.5 py-0.5 rounded-full font-label-badge text-label-badge font-math-display shadow-lg flex items-center gap-1">
+<span class="">🥇</span> WINNER
+            </div>
+</div>
+<span class="font-headline-md text-headline-md text-primary truncate w-full text-center mt-1">Mikaela</span>
+<div class="bg-primary-container text-on-primary-fixed px-2 py-0.5 rounded-full font-label-hud text-label-hud tracking-wide shadow-sm mt-0.5 font-math-display">
+            10/10 PERFECT
+          </div>
+<span class="font-label-badge text-label-badge text-tertiary-container font-math-display mt-0.5">31.2s</span>
+<!-- Gold Center Tall Pedestal Block -->
+<div class="w-full h-36 mt-space-xs rounded-t-xl bg-gradient-to-b from-surface-container-highest via-surface-container to-surface-container-low flex flex-col items-center justify-start pt-3 shadow-[0_-4px_24px_rgba(0,240,255,0.2)] relative overflow-hidden">
+<div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-primary-container to-transparent"></div>
+<div class="w-9 h-9 rounded-full bg-tertiary-container/20 flex items-center justify-center font-headline-lg text-headline-lg text-tertiary-container shadow-inner font-math-display">
+              1
+            </div>
+<span class="font-label-hud text-label-hud text-primary-container uppercase tracking-widest mt-1">CHAMPION</span>
+</div>
+</div>
+<!-- 3rd Place: Jayden (Bronze) -->
+<div class="flex-1 flex flex-col items-center min-w-0">
+<div class="relative mb-space-xs flex flex-col items-center">
+<div class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center shadow-lg relative p-0.5 bg-gradient-to-b from-amber-600 to-amber-900">
+<img class="w-full h-full rounded-full object-cover" data-alt="Stylized 3D mobile game avatar portrait of Jayden, a cool confident boy with curly dark hair wearing dynamic racing goggles around his neck, orange sports jersey with cyber stripes, warm high octane studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKCyc2muB5JEvDIhFipeT-CwJUiRZvHBhwE8b3gpHTMfSF6Zf4yWt_zfvexVstEgGuvIXHCQ5SniAD0xjalq7fFjrCRBIQlnJ5C-pNO_tUAIJHpp9OM9n0rEMTOWrEEJGddVbQWVscLpSjNtt6QljDPInoqLOGsQvWh4YsoEQGMAI4fYNyjO6US3to0lICLyi9aYRlUKQDBBkQhWuAhF7RnowAJi515h00Zt1lBEUSphMJhOIEIMEw">
+</div>
+<div class="absolute -bottom-2 bg-amber-700 text-tertiary px-2 py-0.5 rounded-full font-label-badge text-label-badge shadow-md flex items-center gap-0.5">
+<span class="">🥉</span> 3rd
+            </div>
+</div>
+<span class="font-body-lg text-body-lg text-on-surface truncate w-full text-center mt-1">Jayden</span>
+<span class="font-label-hud text-label-hud text-error font-math-display">9/10 ACC (90%)</span>
+<div class="flex items-center gap-0.5 text-on-surface-variant font-label-hud text-label-hud">
+<span class="text-secondary-fixed">29.1s</span>
+<span class="material-symbols-outlined text-[12px] text-tertiary-container">bolt</span>
+</div>
+<!-- Bronze Pedestal Block -->
+<div class="w-full h-18 mt-space-xs rounded-t-lg bg-surface-container flex flex-col items-center justify-start pt-2 shadow-inner">
+<div class="w-7 h-7 rounded-full bg-amber-900/40 flex items-center justify-center font-headline-md text-headline-md text-amber-500">
+              3
+            </div>
+</div>
+</div>
+</div>
+<!-- Quick Explanation micro-strip -->
+<div class="mt-space-sm pt-space-xs text-center">
+<p class="font-label-hud text-label-hud text-on-surface-variant">
+          ⚡ Jayden raced fastest (29.1s) but 1 mistake secures 3rd place behind 100% precision racers!
+        </p>
+</div>
+</div>
+<!-- Personal Mastery & Academic Growth Box (Highlighted Feature) -->
+<div class="relative w-full bg-gradient-to-br from-surface-container-high via-surface-container to-surface-container-highest rounded-xl p-space-md shadow-xl mb-space-lg overflow-hidden">
+<!-- Decorative Neon Accent Bar -->
+<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-container via-tertiary-container to-secondary-container"></div>
+<div class="flex items-start justify-between gap-space-sm mb-space-sm">
+<div class="flex items-center gap-space-xs">
+<div class="w-9 h-9 rounded-lg bg-tertiary-container/20 flex items-center justify-center text-tertiary-container shadow-inner">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-badge text-label-badge text-tertiary-container uppercase tracking-wide">Academic Mastery Update</span>
+<h3 class="font-headline-md text-headline-md text-primary font-math-display">4 × 8 = 32 MASTERED!</h3>
+</div>
+</div>
+<div class="bg-secondary-container text-on-secondary-container px-space-sm py-1 rounded-full font-label-badge text-label-badge font-math-display shrink-0 shadow">
+          +150 XP
+        </div>
+</div>
+<!-- 4-Pip Neon Evidence Tracker Module -->
+<div class="bg-surface-container-lowest/90 rounded-lg p-space-sm mb-space-sm">
+<div class="flex items-center justify-between mb-1.5">
+<span class="font-label-hud text-label-hud text-on-surface-variant uppercase tracking-wider">Concept Evidence Chain (Multiplication Vault)</span>
+<span class="font-label-hud text-label-hud text-primary-container font-math-display">4 / 4 Pips Complete</span>
+</div>
+<!-- Pips Visual Row -->
+<div class="grid grid-cols-4 gap-space-xs py-1">
+<div class="h-3 rounded-full bg-primary-container shadow-[0_0_10px_rgba(0,240,255,0.7)] flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-container-lowest"></span>
+</div>
+<div class="h-3 rounded-full bg-primary-container shadow-[0_0_10px_rgba(0,240,255,0.7)] flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-container-lowest"></span>
+</div>
+<div class="h-3 rounded-full bg-primary-container shadow-[0_0_10px_rgba(0,240,255,0.7)] flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-surface-container-lowest"></span>
+</div>
+<!-- Mastery Final Pip: Radiant Star Glow -->
+<div class="h-3 rounded-full bg-tertiary-container shadow-[0_0_14px_rgba(255,215,0,0.9)] flex items-center justify-center animate-pulse">
+<span class="material-symbols-outlined text-[10px] text-surface-container-lowest font-bold">star</span>
+</div>
+</div>
+</div>
+<!-- Milestone Badges & Encouragement -->
+<div class="grid grid-cols-2 gap-space-xs mb-space-xs">
+<div class="bg-surface-container-low p-space-xs rounded-lg flex items-center gap-space-xs">
+<div class="w-7 h-7 rounded-full bg-secondary-container/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[16px]">local_fire_department</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-hud text-label-hud text-on-surface-variant">Streak Badge</span>
+<span class="font-label-badge text-label-badge text-on-surface truncate font-math-display">5-Streak (+1)</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-space-xs rounded-lg flex items-center gap-space-xs">
+<div class="w-7 h-7 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-hud text-label-hud text-on-surface-variant">Personal Best</span>
+<span class="font-label-badge text-label-badge text-on-surface truncate font-math-display">100% Accuracy!</span>
+</div>
+</div>
+</div>
+<!-- Sportsmanship Quote Strip -->
+<div class="flex items-center gap-space-xs bg-surface-container-high/60 px-space-sm py-1.5 rounded-lg text-secondary-fixed">
+<span class="material-symbols-outlined text-[16px] text-tertiary-container">sentiment_very_satisfied</span>
+<span class="font-body-md text-body-md truncate">Great sportsmanship! You set a new personal accuracy record!</span>
+</div>
+</div>
+<!-- Complete Standings Table -->
+<div class="relative w-full bg-surface-container rounded-xl p-space-md shadow-lg mb-space-lg">
+<div class="flex items-center justify-between mb-space-sm pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary-container text-[20px]">leaderboard</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Official Race Log</h3>
+</div>
+<span class="font-label-hud text-label-hud text-on-surface-variant uppercase">4 Racers Completed</span>
+</div>
+<!-- Standings List -->
+<div class="flex flex-col gap-space-xs">
+<!-- Row 1: Mikaela (Active Player Highlight) -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-highest shadow-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary-container"></div>
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="font-math-display text-body-lg text-tertiary-container font-bold w-5 text-center">1</span>
+<div class="w-8 h-8 rounded-full overflow-hidden shrink-0">
+<img alt="Mikaela" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VqdiWC2nVfgudir9gD_-TWw_DGZk3RvBy3pMazjh8JoZNQznenxglpxZK0SBPLnUIx4Bf6x_3U264kTkXDdeLsiQi4iyIIUP8NYLgAkdc814pjNcHaKWhR1MvVFCHQJ870EnaHV8HzT-kVVdzeGQ5PAcTbAKIfY_fHxyt-SmIuMrJCPikQbv907TimuJJzUSXdpKGPuAqnCrUDkEBbJ8LdfXNDi7QeIiqXkXUha82Y4NY39e9ZqqZr27s">
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1">
+<span class="font-body-lg text-body-lg text-primary truncate font-bold">Mikaela</span>
+<span class="bg-primary-container text-on-primary-fixed font-label-hud text-label-hud px-1.5 py-0.2 rounded-full uppercase">YOU</span>
+</div>
+<span class="font-label-hud text-label-hud text-on-surface-variant font-math-display">10/10 Correct (100%)</span>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0">
+<span class="font-math-display text-body-lg text-tertiary-container font-bold">31.2s</span>
+<span class="font-label-hud text-label-hud text-secondary font-math-display">+150 XP</span>
+</div>
+</div>
+<!-- Row 2: Adrian -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low shadow-sm">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="font-math-display text-body-lg text-slate-300 font-bold w-5 text-center">2</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-slate-300 text-[18px]">sports_esports</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-lg text-body-lg text-on-surface truncate">Adrian</span>
+<span class="font-label-hud text-label-hud text-on-surface-variant font-math-display">10/10 Correct (100%)</span>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0">
+<span class="font-math-display text-body-lg text-slate-300 font-bold">36.4s</span>
+<span class="font-label-hud text-label-hud text-secondary font-math-display">+120 XP</span>
+</div>
+</div>
+<!-- Row 3: Jayden -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low shadow-sm">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="font-math-display text-body-lg text-amber-500 font-bold w-5 text-center">3</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-amber-500 text-[18px]">bolt</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-lg text-body-lg text-on-surface truncate">Jayden</span>
+<span class="font-label-hud text-label-hud text-error font-math-display">9/10 Correct (90%)</span>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0">
+<span class="font-math-display text-body-lg text-amber-400 font-bold">29.1s</span>
+<span class="font-label-hud text-label-hud text-secondary font-math-display">+90 XP</span>
+</div>
+</div>
+<!-- Row 4: Sofia -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low shadow-sm">
+<div class="flex items-center gap-space-xs min-w-0">
+<span class="font-math-display text-body-lg text-on-surface-variant font-bold w-5 text-center">4</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">person</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-lg text-body-lg text-on-surface truncate">Sofia</span>
+<span class="font-label-hud text-label-hud text-on-surface-variant font-math-display">8/10 Correct (80%)</span>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0">
+<span class="font-math-display text-body-lg text-on-surface-variant font-bold">34.0s</span>
+<span class="font-label-hud text-label-hud text-secondary font-math-display">+75 XP</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Center: Massive Chunky Tactile Arcade Buttons -->
+<div class="flex flex-col gap-space-sm pt-space-xs pb-space-lg">
+<!-- Primary Rematch CTA (Physical 3D Chunky Push Button) -->
+<button class="w-full h-16 rounded-xl bg-primary-container text-on-primary-fixed font-headline-lg-mobile text-headline-lg-mobile uppercase flex items-center justify-center gap-space-xs shadow-[0_6px_0_#006970,0_12px_24px_rgba(0,240,255,0.4)] active:translate-y-1.5 active:shadow-[0_0px_0_#006970] transition-all cursor-pointer" id="rematch-btn">
+<span class="material-symbols-outlined text-[28px] animate-spin-slow">bolt</span>
+<span class="">Play Again (Rematch)</span>
+</button>
+<!-- Secondary & Tertiary Grid -->
+<div class="grid grid-cols-2 gap-space-sm">
+<!-- Return to Lobby Button -->
+<button class="h-13 rounded-lg bg-surface-container-high hover:bg-surface-bright text-primary font-body-lg text-body-lg flex items-center justify-center gap-space-xs shadow-[0_4px_0_#171b26] active:translate-y-1 active:shadow-none transition-all" onclick="window.history.back()">
+<span class="material-symbols-outlined text-[20px]">meeting_room</span>
+<span class="">Return to Lobby</span>
+</button>
+<!-- Back to Home Button -->
+<button class="h-13 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-body-lg text-body-lg flex items-center justify-center gap-space-xs shadow-[0_4px_0_#0a0e18] active:translate-y-1 active:shadow-none transition-all" onclick="window.location.href='#'">
+<span class="material-symbols-outlined text-[20px]">home</span>
+<span class="">Back to Home</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Interactive Micro-Interactions Script -->
+<script>
+    document.getElementById('rematch-btn')?.addEventListener('click', function() {
+      // Tactile button reaction & celebratory burst simulation
+      this.classList.add('scale-95');
+      setTimeout(() => {
+        this.classList.remove('scale-95');
+        // Visual feedback state
+        const originalContent = this.innerHTML;
+        this.innerHTML = '<span class="material-symbols-outlined text-[28px] animate-spin">sync</span><span>FINDING RIVALS...</span>';
+        setTimeout(() => {
+          this.innerHTML = originalContent;
+        }, 1600);
+      }, 100);
+    });
+  </script>
+</div></main>
+
+</body></html>
