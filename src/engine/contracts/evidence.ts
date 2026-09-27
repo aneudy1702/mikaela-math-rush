@@ -20,11 +20,14 @@ export type AttemptSource = 'draw' | 'reintroduce' | 'later-check' | 'placement'
  * Questions discarded on hide are NOT attempts (see SessionRecord.discardedOnHide).
  */
 export interface RawAttempt {
-  /** Canonical fact ID (D9). Live multiplication evidence is still keyed by this. */
+  /**
+   * Live evidence key. Multiplication may still store the legacy key `7x8` here.
+   * The canonical V3 concept id is `conceptIds`. That split is a Multiplication
+   * compatibility adapter, not a second concept model.
+   */
   factId: string
   /**
-   * Semantic question instance. Absent on V2 attempts; counting then uses `factId`.
-   * The V2 raw-log codec does not store this yet. New in-memory attempts set it.
+   * Semantic question instance. Historical V2 attempts may omit it; counting then uses `factId`.
    */
   instanceKey?: string
   /** Selected choice, when the question offered choices. */
@@ -33,8 +36,8 @@ export interface RawAttempt {
   misconceptionId?: string
   /**
    * Concepts this answer can count for.
- * Household saves use the V3 raw-log codec, which keeps these fields.
- * A version-1 row from the V2 kid save omits them. Do not invent them on decode.
+   * Household saves keep these fields. Historical V2 attempts may legitimately lack them.
+   * Do not invent them on decode.
    */
   conceptIds?: readonly string[]
   /** Skill that produced the question. */

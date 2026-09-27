@@ -9,8 +9,17 @@ const params = new URLSearchParams(window.location.search)
 const proof = params.has('proof')
 const designGallery = params.has('design')
 const v3 = params.has('v3')
+const social = params.has('social')
 
-if (v3) {
+if (social) {
+  void import('./social/SocialPreview').then(({ SocialPreview }) => {
+    root.render(
+      <StrictMode>
+        <SocialPreview />
+      </StrictMode>,
+    )
+  })
+} else if (v3) {
   void import('./ui/v3/V3App').then(({ V3App }) => {
     root.render(
       <StrictMode>

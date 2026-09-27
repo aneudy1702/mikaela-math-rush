@@ -217,6 +217,35 @@
 .mr-tier-celebrate dl { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mr-space-sm); margin: 0; }
 .mr-tier-celebrate dt { color: #b9cacb; font-size: 0.8rem; }
 .mr-tier-celebrate dd { margin: 0; font-family: var(--mr-math); font-size: 1.4rem; }
+.mr-social { display: grid; gap: var(--mr-space-md); }
+.mr-social-nav { display: flex; gap: var(--mr-space-sm); flex-wrap: wrap; }
+.mr-social-nav button {
+  font: inherit;
+  color: white;
+  background: #121826;
+  border: 1px solid var(--mr-academic-deep);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+}
+.mr-social-nav button[aria-current='page'] { border-color: var(--mr-academic); color: var(--mr-academic); }
+.mr-social-context { display: flex; gap: var(--mr-space-sm); flex-wrap: wrap; }
+.mr-social-context span {
+  border: 1px solid var(--mr-academic-deep);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  color: var(--mr-academic);
+}
+.mr-social-code { font-family: var(--mr-math); font-size: 2.4rem; letter-spacing: 0.12em; color: var(--mr-academic); }
+.mr-social-list, .mr-podium, .mr-lanes { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; }
+.mr-social-list li, .mr-podium li, .mr-lanes li {
+  display: flex;
+  align-items: center;
+  gap: var(--mr-space-sm);
+}
+.mr-social-list small { display: block; color: #b9cacb; }
+.mr-lane { flex: 1; height: 0.35rem; background: #313540; border-radius: 999px; overflow: hidden; }
+.mr-lane span { display: block; height: 100%; background: var(--mr-academic); }
+.mr-social-race .mr-lanes { margin-top: var(--mr-space-sm); opacity: 0.85; }
 
 @media (prefers-reduced-motion: reduce) {
   .mr-root *,

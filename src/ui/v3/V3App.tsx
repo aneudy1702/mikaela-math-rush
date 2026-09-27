@@ -185,6 +185,7 @@ function HomeScreen({
   )
 }
 
+/** `locked` is curriculum access, not a permanent mastery state. */
 function levelState(
   levelId: string,
   currentId: string,
