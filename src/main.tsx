@@ -5,9 +5,19 @@ import { App } from './App'
 import { gameAudio } from './audio/AudioManager'
 
 const root = createRoot(document.getElementById('root')!)
-const designGallery = new URLSearchParams(window.location.search).has('design')
+const params = new URLSearchParams(window.location.search)
+const proof = params.has('proof')
+const designGallery = params.has('design')
 
-if (designGallery) {
+if (proof) {
+  void import('./ui/answers/SharedPlayProof').then(({ SharedPlayProof }) => {
+    root.render(
+      <StrictMode>
+        <SharedPlayProof />
+      </StrictMode>,
+    )
+  })
+} else if (designGallery) {
   void import('./ui/gallery/DesignGallery').then(({ DesignGallery }) => {
     root.render(
       <StrictMode>

@@ -11,15 +11,18 @@ export type AnswerVisual =
 export function AnswerChoice({
   visual,
   state = 'default',
+  onSelect,
 }: {
   visual: AnswerVisual
   state?: 'default' | 'correct' | 'miss'
+  onSelect?: () => void
 }) {
   return (
     <button
       type="button"
       className={`mr-answer ${state === 'default' ? '' : state}`}
       aria-label={visual.kind === 'visual' ? `${visual.cells} tiles` : undefined}
+      onClick={onSelect}
     >
       <AnswerFace visual={visual} />
     </button>

@@ -94,10 +94,28 @@
   margin: var(--mr-space-md) 0;
 }
 
+.mr-proof {
+  display: grid;
+  gap: var(--mr-space-lg);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 .mr-answers {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.mr-numeric {
+  width: 100%;
+  font-family: var(--mr-math);
+  font-size: 1.5rem;
+  padding: var(--mr-space-md);
+  border-radius: 1rem;
+  border: 1px solid var(--mr-academic-deep);
+  background: #121826;
+  color: white;
 }
 
 .mr-answer {

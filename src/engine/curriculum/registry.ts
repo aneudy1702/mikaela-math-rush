@@ -40,9 +40,17 @@ const skills = new Map<string, RegisteredSkill>([
   [MULTIPLICATION_SKILL_ID, multiplicationSkill()],
 ])
 
-/** Live skills. Multiplication is the only one until Wave 2. */
+/** Live skills. Additional plugins register themselves from the shipped module. */
 export function listRegisteredSkills(): readonly RegisteredSkill[] {
   return [...skills.values()]
+}
+
+export function findRegisteredSkill(skillId: string): RegisteredSkill | undefined {
+  return skills.get(skillId)
+}
+
+export function registerSkill(skill: RegisteredSkill): void {
+  skills.set(skill.id, skill)
 }
 
 export function getRegisteredSkill(skillId: string): RegisteredSkill {

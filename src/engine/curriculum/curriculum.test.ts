@@ -139,7 +139,7 @@ describe('D1 ladder', () => {
   })
 
   it('throws for an unknown skill', () => {
-    expect(() => getCurriculum('division')).toThrow()
+    expect(() => getCurriculum('not-a-skill')).toThrow()
   })
 })
 

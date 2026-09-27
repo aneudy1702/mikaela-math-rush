@@ -6,6 +6,7 @@ import {
 } from '../contracts'
 import { buildMultiplicationLevels } from '../content/multiplication/levels'
 import { MULTIPLICATION_SKILL_ID } from '../content/multiplication/plugin'
+import { findRegisteredSkill, type RegisteredSkill } from './registry'
 
 /** D0: grade 3 → multiplication, factors 1–10. */
 const MULTIPLICATION_GRADE = 3
@@ -36,10 +37,54 @@ function multiplicationCurriculum(): SkillCurriculum {
   return multiplication
 }
 
+/**
+ * Skills that still ship a fact-id curriculum. Only multiplication belongs here.
+ * Every other registered skill is built from concept levels, and completion reads
+ * `gatingConceptIds`. Remove multiplication from this map when its evidence is
+ * stored by concept id — not as part of a screen change.
+ */
+const fullCurricula = new Map<string, () => SkillCurriculum>([
+  [MULTIPLICATION_SKILL_ID, multiplicationCurriculum],
+])
+
+const conceptCurricula = new Map<string, SkillCurriculum>()
+
+function curriculumFromConcepts(skill: RegisteredSkill): SkillCurriculum {
+  const levels = skill.levels.map((level) =>
+    freezeLevel({
+      id: level.id,
+      skillId: level.skillId,
+      index: level.index,
+      kind: level.kind,
+      title: level.title,
+      conceptIds: [...level.conceptIds],
+      gatingConceptIds: [...level.gatingConceptIds],
+      introConceptIds: [...level.introConceptIds],
+      tables: [],
+      tableFactIds: [],
+      ownedFactIds: [],
+      gatingFactIds: [],
+      introFactIds: [],
+    }),
+  )
+  return Object.freeze({
+    skillId: skill.id,
+    grade: skill.grade,
+    levels: Object.freeze(levels) as LevelDef[],
+  })
+}
+
 /** The curriculum for a skill (default: multiplication). Throws for an unknown skill. Frozen, shared. */
 export function getCurriculum(skillId: string = MULTIPLICATION_SKILL_ID): SkillCurriculum {
-  if (skillId === MULTIPLICATION_SKILL_ID) return multiplicationCurriculum()
-  throw new Error(`Unknown skill: ${skillId}`)
+  const full = fullCurricula.get(skillId)
+  if (full) return full()
+  const cached = conceptCurricula.get(skillId)
+  if (cached) return cached
+  const registered = findRegisteredSkill(skillId)
+  if (!registered) throw new Error(`Unknown skill: ${skillId}`)
+  const built = curriculumFromConcepts(registered)
+  conceptCurricula.set(skillId, built)
+  return built
 }
 
 /** Level by ID. Throws for an unknown level. */

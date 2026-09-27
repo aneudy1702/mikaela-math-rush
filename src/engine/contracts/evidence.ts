@@ -31,6 +31,17 @@ export interface RawAttempt {
   selectedChoiceId?: string
   /** Misconception of that choice, when it had one. */
   misconceptionId?: string
+  /**
+   * Concepts this answer can count for.
+   * The V2 positional codec still does not store concept ids, instanceKey,
+   * the selected choice, or the misconception. Retire that gap together with
+   * the multiplication fact-id completion adapter, not with a screen change.
+   */
+  conceptIds?: readonly string[]
+  /** Skill that produced the question. */
+  skillId?: string
+  /** Learner the attempt belongs to. */
+  learnerId?: string
   /** Presented orientation "a × b". null only for migrated v1 attempts (unknown). */
   a: number | null
   b: number | null

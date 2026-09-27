@@ -1,4 +1,5 @@
 import type {
+  AnswerChoice,
   AttemptSource,
   BadgeAward,
   FactEvidence,
@@ -21,7 +22,7 @@ import type {
   XpBreakdown,
 } from '../contracts'
 import { SESSION_LENGTHS, evidenceInstanceKey, recordKeyId } from '../contracts'
-import { getCurriculum, getLevel, nextLevel } from '../curriculum'
+import { completionGatingIds, getCurriculum, getLevel, nextLevel } from '../curriculum'
 import {
   appendEvidenceBuffer,
   applyAttemptToEvidence,
@@ -40,6 +41,7 @@ import {
   type LevelPick,
   type SelectionRngs,
 } from '../orchestrator'
+import { createPluginQuestionSource } from './pluginSource'
 import type {
   PersistenceNotice,
   ProfileLoadResult,
@@ -122,8 +124,9 @@ function isDeferredLevel(level: LevelDef): boolean {
 }
 
 /**
- * Question source the engine drives (the T5 orchestrator). Injectable only so tests can
- * replay a recorded pick sequence (D12 exact invariant); production uses the default.
+ * Question source the engine drives. Injectable so tests can replay a recorded pick
+ * sequence. Production uses the fact orchestrator when the level still has table facts,
+ * and the skill plugin otherwise.
  */
 export interface SessionQuestionSource {
   seedPending(pending: readonly PendingReinforcement[]): number
@@ -166,9 +169,11 @@ export interface LevelSessionOptions {
   adoptProfile?: boolean
   /**
    * @internal Test seam (D12 replay). Production callers must not pass this.
-   * Default: `new LevelQuestionOrchestrator(ctx)`.
+   * Default: the fact orchestrator when the level has table facts, otherwise the skill plugin.
    */
   questionSource?: (ctx: QuestionSourceContext) => SessionQuestionSource
+  /** Copied onto every attempt. Defaults to the profile's learner name. */
+  learnerId?: string
 }
 
 /** What happened when the session started (for T8 notices / diagnostics). */
@@ -292,6 +297,24 @@ function presentedFactor(question: Question, key: 'a' | 'b'): number | null {
 function numericGiven(given: unknown): number | null {
   const n = typeof given === 'number' ? given : Number(given)
   return typeof given !== 'boolean' && given !== null && given !== '' && Number.isFinite(n) ? n : null
+}
+
+function sameAnswerValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true
+  if (typeof left === 'number' && typeof right === 'number') return left === right
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false
+  const a = left as { numerator?: unknown; denominator?: unknown }
+  const b = right as { numerator?: unknown; denominator?: unknown }
+  return (
+    typeof a.numerator === 'number' &&
+    typeof b.numerator === 'number' &&
+    a.numerator === b.numerator &&
+    a.denominator === b.denominator
+  )
+}
+
+function selectedChoice(question: Question, value: unknown): AnswerChoice | undefined {
+  return question.choices?.find((choice) => choice.id === value || sameAnswerValue(choice.value, value))
 }
 
 /** "7 × 8 = 56" in the presented orientation. */
@@ -545,6 +568,7 @@ export class LevelSessionEngine {
   private readonly curriculum: SkillCurriculum
   private readonly clock: () => number
   private readonly source: SessionQuestionSource
+  private readonly learnerId: string
   private readonly before: SkillProgress
   private readonly session: SessionRecord
   private readonly missedThisSession = new Set<string>()
@@ -596,6 +620,7 @@ export class LevelSessionEngine {
     }
 
     this.profile = profile
+    this.learnerId = options.learnerId ?? profile.learnerName
     this.skill = options.skill
     this.curriculum = curriculum
     this.level = level
@@ -612,7 +637,9 @@ export class LevelSessionEngine {
     const ctx: QuestionSourceContext = { skill: options.skill, levelId: level.id, mode: options.mode, rngs, curriculum }
     this.source = options.questionSource
       ? options.questionSource(ctx)
-      : new LevelQuestionOrchestrator({ ...ctx })
+      : level.tableFactIds.length > 0
+        ? new LevelQuestionOrchestrator({ ...ctx })
+        : createPluginQuestionSource(ctx)
     const droppedPending = this.source.seedPending(profile.pendingReinforcements ?? [])
 
     this.session = {
@@ -706,8 +733,10 @@ export class LevelSessionEngine {
   /** D10 in-level fact progress for the play screen (table facts of this level). */
   levelProgress(): LevelProgressFact[] {
     const ev = this.profile.progress.factEvidence
-    const gating = new Set(this.level.gatingFactIds)
-    return this.level.tableFactIds.map((factId) => ({
+    const gatingIds = completionGatingIds(this.level)
+    const ids = this.level.tableFactIds.length > 0 ? this.level.tableFactIds : gatingIds
+    const gating = new Set(gatingIds)
+    return ids.map((factId) => ({
       factId,
       status: factStatus(ev[factId]),
       displayValue: factDisplayValue(ev[factId]),
@@ -754,6 +783,7 @@ export class LevelSessionEngine {
     const result = this.skill.evaluateAnswer(cur.question, { value, respondedAtMs: atMs, latencyMs })
     const correct = result.correct
     const given = numericGiven(result.given)
+    const choice = selectedChoice(cur.question, value)
     const instanceKey = evidenceInstanceKey({
       factId: cur.factId,
       instanceKey: cur.question.instanceKey,
@@ -761,6 +791,11 @@ export class LevelSessionEngine {
     const attempt: RawAttempt = {
       factId: cur.factId,
       instanceKey: cur.question.instanceKey,
+      conceptIds: [...cur.question.conceptIds],
+      skillId: cur.question.skillId,
+      learnerId: this.learnerId,
+      selectedChoiceId: choice?.id,
+      misconceptionId: choice?.misconceptionId,
       a: presentedFactor(cur.question, 'a'),
       b: presentedFactor(cur.question, 'b'),
       correct,
