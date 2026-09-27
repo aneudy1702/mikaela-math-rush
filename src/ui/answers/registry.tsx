@@ -63,24 +63,47 @@ export function VisualSelectionAnswer(props: AnswerRendererProps) {
 
 export function NumericAnswer({ question, onAnswer }: AnswerRendererProps) {
   return (
-    <input
-      className="mr-numeric"
-      aria-label="Numeric answer"
-      inputMode="numeric"
-      data-question-id={question.id}
-      onChange={(event) => onAnswer?.(event.currentTarget.value)}
-    />
+    <form
+      className="mr-numeric-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const raw = String(new FormData(event.currentTarget).get('answer') ?? '').trim()
+        if (!raw) return
+        const numeric = Number(raw)
+        onAnswer?.(Number.isFinite(numeric) ? numeric : raw)
+      }}
+    >
+      <input
+        className="mr-numeric"
+        name="answer"
+        aria-label="Numeric answer"
+        inputMode="numeric"
+        data-question-id={question.id}
+      />
+      <button type="submit">Check</button>
+    </form>
   )
 }
 
 export function TextAnswer({ question, onAnswer }: AnswerRendererProps) {
   return (
-    <input
-      className="mr-numeric"
-      aria-label="Text answer"
-      data-question-id={question.id}
-      onChange={(event) => onAnswer?.(event.currentTarget.value)}
-    />
+    <form
+      className="mr-numeric-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const raw = String(new FormData(event.currentTarget).get('answer') ?? '').trim()
+        if (!raw) return
+        onAnswer?.(raw)
+      }}
+    >
+      <input
+        className="mr-numeric"
+        name="answer"
+        aria-label="Text answer"
+        data-question-id={question.id}
+      />
+      <button type="submit">Check</button>
+    </form>
   )
 }
 

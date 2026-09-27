@@ -8,8 +8,17 @@ const root = createRoot(document.getElementById('root')!)
 const params = new URLSearchParams(window.location.search)
 const proof = params.has('proof')
 const designGallery = params.has('design')
+const v3 = params.has('v3')
 
-if (proof) {
+if (v3) {
+  void import('./ui/v3/V3App').then(({ V3App }) => {
+    root.render(
+      <StrictMode>
+        <V3App />
+      </StrictMode>,
+    )
+  })
+} else if (proof) {
   void import('./ui/answers/SharedPlayProof').then(({ SharedPlayProof }) => {
     root.render(
       <StrictMode>

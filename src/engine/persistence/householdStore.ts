@@ -3,10 +3,11 @@
  * The V2 key is read for the one-time map and is never written or deleted.
  */
 
-import type { Household, LearnerProfileV3 } from '../contracts'
+import type { Household, LearnerProfileV3, RawLog } from '../contracts'
 import { HOUSEHOLD_STORAGE_KEY } from '../contracts'
 import { PROFILE_STORAGE_KEY, deserializeProfile } from './storage'
 import { applyHouseholdMigration } from './householdMigration'
+import { decodeRawLog, encodeRawLogV3 } from './rawLog'
 
 export const HOUSEHOLD_QUARANTINE_PREFIX = 'math-rush:household-v3-quarantine-'
 export const HOUSEHOLD_NOTICES_KEY = 'math-rush:household-notices'
@@ -33,6 +34,25 @@ function read(storage: Storage, key: string): string | null {
   } catch {
     return null
   }
+}
+
+function isPlainLog(value: unknown): value is RawLog {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const log = value as Partial<RawLog>
+  return Array.isArray(log.attempts) && Array.isArray(log.sessions)
+}
+
+function restoreRawLog(value: unknown): RawLog {
+  if (isPlainLog(value)) return value
+  return decodeRawLog(value)
+}
+
+function restoreHousehold(household: Household): Household {
+  const learners: Household['learners'] = {}
+  for (const [id, learner] of Object.entries(household.learners)) {
+    learners[id] = { ...learner, rawLog: restoreRawLog(learner.rawLog) }
+  }
+  return { ...household, learners }
 }
 
 function parseHousehold(json: string): Household | null {
@@ -70,9 +90,23 @@ export function loadHousehold(
       const quarantineKey = quarantine(storage, raw, options.nowMs)
       return { household: EMPTY, migrated: false, notice: 'unreadable-household', quarantineKey }
     }
-    if (parsed.migration?.completed) {
-      return { household: parsed, migrated: false }
+    const restored = restoreHousehold(parsed)
+    if (parsed.migration?.completed || v2Before === null) {
+      return { household: restored, migrated: false }
     }
+    const v2 = deserializeProfile(v2Before)
+    if (!v2) return { household: restored, migrated: false, notice: 'unreadable-v2' }
+    const migrated = applyHouseholdMigration({
+      household: restored,
+      v2Profile: v2,
+      nowMs: options.nowMs,
+      learnerId: options.learnerId,
+    })
+    const saved = saveHousehold(storage, migrated.household)
+    if (saved.status === 'failed') {
+      return { household: migrated.household, migrated: false, notice: 'save-failed' }
+    }
+    return { household: migrated.household, migrated: migrated.ran }
   }
 
   if (v2Before === null) return { household: EMPTY, migrated: false }
@@ -81,7 +115,7 @@ export function loadHousehold(
   if (!v2) return { household: EMPTY, migrated: false, notice: 'unreadable-v2' }
 
   const migrated = applyHouseholdMigration({
-    household: raw ? parseHousehold(raw) : null,
+    household: null,
     v2Profile: v2,
     nowMs: options.nowMs,
     learnerId: options.learnerId,
@@ -94,8 +128,12 @@ export function loadHousehold(
 }
 
 export function saveHousehold(storage: Storage, household: Household): HouseholdSaveResult {
+  const learners: Record<string, unknown> = {}
+  for (const [id, learner] of Object.entries(household.learners)) {
+    learners[id] = { ...learner, rawLog: encodeRawLogV3(learner.rawLog) }
+  }
   try {
-    storage.setItem(HOUSEHOLD_STORAGE_KEY, JSON.stringify(household))
+    storage.setItem(HOUSEHOLD_STORAGE_KEY, JSON.stringify({ ...household, learners }))
     return { status: 'saved' }
   } catch {
     return { status: 'failed', notice: 'save-failed' }

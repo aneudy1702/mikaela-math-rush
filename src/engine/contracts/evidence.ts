@@ -33,9 +33,8 @@ export interface RawAttempt {
   misconceptionId?: string
   /**
    * Concepts this answer can count for.
-   * The V2 positional codec still does not store concept ids, instanceKey,
-   * the selected choice, or the misconception. Retire that gap together with
-   * the multiplication fact-id completion adapter, not with a screen change.
+ * Household saves use the V3 raw-log codec, which keeps these fields.
+ * A version-1 row from the V2 kid save omits them. Do not invent them on decode.
    */
   conceptIds?: readonly string[]
   /** Skill that produced the question. */
