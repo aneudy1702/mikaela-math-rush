@@ -86,7 +86,7 @@ interface Question {
 
 `AnswerType` is the list already in the engine: `numeric`, `multiple-choice`, `fraction`, `text`, `visual-selection`. V3 does not rename these. `multiple-choice` is the default. `fraction` is a stacked fraction choice. `visual-selection` is a diagram tile. `numeric` stays available and is not the default. `text` stays in the union because it already exists; no V3 skill needs a new member to ship.
 
-`LevelDef` keeps `index`, `kind`, and `title` because level order, mixed-versus-table completion, and the ladder UI read them. Multiplication-only lists (`tables`, `tableFactIds`, `ownedFactIds`, and the fact-id copies of gating and intro) stay until evidence is keyed by concept id. Until then, table completion still reads `gatingFactIds`. `gatingConceptIds` is that same membership written as concept ids, and the allowance clamp uses that count. Wave 0B adds the concept fields. It does not delete the fact fields in the same step.
+`LevelDef` keeps `index`, `kind`, and `title` because level order, mixed-versus-table completion, and the ladder UI read them. `gatingConceptIds` is the canonical V3 curriculum contract. Table completion for Multiplication still reads `gatingFactIds` through `completionGatingIds`, because live V2 evidence is keyed by canonical fact ids. That function is a temporary Multiplication adapter. No other skill may read or depend on `gatingFactIds`. Removing the fact-id branch is part of the engine and persistence integration, when stored evidence is keyed by concept id. It is not a second mastery model to keep.
 
 Owned facts in V2 are gating plus intro. That reconstruction stays valid, so a separate `ownedConceptIds` field is not required.
 
@@ -179,7 +179,7 @@ The raw attempt stores the selected choice id, whether it was correct, and `misc
 
 `3x + 5 = 20` is out of V3 scope (two-step).
 
-Level completion stays rules R1–R5, with the allowance clamp above. While multiplication evidence is keyed by fact id, R1 reads `gatingFactIds`. `gatingConceptIds` is that same set in concept-id form. New skills use it once their evidence is keyed that way. A plugin does not supply its own completion score.
+Level completion stays rules R1–R5, with the allowance clamp above. `completionGatingIds` returns `gatingConceptIds` for every skill except Multiplication, which still receives its fact ids until evidence storage moves. A plugin does not supply its own completion score, and a new skill does not see `gatingFactIds`.
 
 ---
 

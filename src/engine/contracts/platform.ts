@@ -3,7 +3,7 @@
  * The running app still loads `LearnerProfile` (V2) until migration is wired.
  */
 
-import type { LevelId } from './curriculum'
+import type { LevelId, LevelKind } from './curriculum'
 import type { FactStatus, RawLog, SkillProgress } from './evidence'
 import type { PlayerProgress } from './progression'
 import type { PersonalRecord, SessionLogEntry } from './records'
@@ -18,6 +18,18 @@ export interface LearningConcept {
   id: string
   skillId: string
   title: string
+}
+
+/** Level membership a new skill is allowed to see. No fact-id lists. */
+export interface ConceptLevel {
+  id: LevelId
+  skillId: string
+  index: number
+  kind: LevelKind
+  title: string
+  conceptIds: readonly string[]
+  gatingConceptIds: readonly string[]
+  introConceptIds: readonly string[]
 }
 
 export interface ConceptRelationship {

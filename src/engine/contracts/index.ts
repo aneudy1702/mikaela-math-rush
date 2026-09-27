@@ -125,6 +125,7 @@ export {
   HOUSEHOLD_STORAGE_KEY,
   evidenceInstanceKey,
   multiplicationConceptId,
+  type ConceptLevel,
   type ConceptRelationship,
   type ConceptRelationshipKind,
   type DistractorContext,

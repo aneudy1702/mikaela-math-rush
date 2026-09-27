@@ -18,6 +18,7 @@ import type {
   TableLevelChecks,
 } from '../contracts'
 import { RULES, SPEC_CONSTANTS, evidenceInstanceKey, levelIndexOf } from '../contracts'
+import { completionGatingIds } from '../curriculum/bridge'
 
 /**
  * D2 fact status, counted attempts, level completion (R1–R5, L9 option B + V4),
@@ -244,7 +245,7 @@ export function evaluateTableLevel(
   buffer: readonly EvidenceBufferEntry[],
   finishedSessionsAtLevel: number,
 ): TableLevelChecks {
-  const gating = level.gatingFactIds
+  const gating = completionGatingIds(level)
   const n = gating.length
   const allowance = levelAllowance(n)
   const required = Math.max(0, n - allowance)
