@@ -1,6 +1,6 @@
 # Math Rush V3 — Plan
 
-Status: **WAVE 1 IN PROGRESS.** Curriculum registry, household persistence, and the design-system foundation. No Division, Fractions, Algebra, or finished V3 screens.
+Status: **WAVE 1 COMPLETE.** Curriculum registry, household persistence, and the design-system foundation are on `v3/integration`. The kid app still loads the V2 profile. Division, Fractions, Algebra, and finished V3 screens are not started.
 
 `gatingConceptIds` is the V3 curriculum contract. Multiplication completion still adapts through `gatingFactIds` until evidence is stored by concept id. That removal belongs to the engine and persistence integration. New skills do not use the fact-id path.
 
