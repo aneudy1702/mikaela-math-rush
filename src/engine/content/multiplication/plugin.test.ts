@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
+import { multiplicationConceptId } from '../../contracts'
 import {
   canonicalFactId,
   createMultiplicationSkill,
@@ -24,6 +25,24 @@ describe('multiplication plugin', () => {
     expect(q.answerType).toBe('numeric')
     expect(q.correctAnswer).toBe(56)
     expect(q.metadata?.factId).toBe('7x8')
+    expect(q.conceptIds).toEqual([multiplicationConceptId('7x8')])
+    expect(q.instanceKey).toBe(multiplicationConceptId('7x8'))
+  })
+
+  it('uses one instanceKey for both factor orders', () => {
+    let n = 0
+    const values = [0, 0, 0, 0.9]
+    const skill = createMultiplicationSkill(() => values[n++] ?? 0)
+    const request = {
+      skillId: 'multiplication',
+      targetConcepts: ['7x8'],
+      cognitiveDifficulty: 0.5,
+    }
+    const first = skill.generateQuestion(request)
+    const second = skill.generateQuestion(request)
+    expect(first.instanceKey).toBe(multiplicationConceptId('7x8'))
+    expect(second.instanceKey).toBe(first.instanceKey)
+    expect(second.metadata?.a).not.toBe(first.metadata?.a)
   })
 
   it('keeps fact IDs canonical across factor order', () => {
@@ -37,6 +56,8 @@ describe('multiplication plugin', () => {
     const question: Question = {
       id: 't1',
       skillId: 'multiplication',
+      conceptIds: [multiplicationConceptId('6x7')],
+      instanceKey: multiplicationConceptId('6x7'),
       difficulty: 0.5,
       prompt: { type: 'expression', expression: '6 × 7' },
       answerType: 'numeric',

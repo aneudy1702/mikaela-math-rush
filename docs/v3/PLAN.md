@@ -1,6 +1,6 @@
 # Math Rush V3 — Plan
 
-Status: **WAVE 0A IS THE NEXT STEP.** No V3 implementation, including contract code, starts before the owner accepts the 0A review.
+Status: **WAVE 0A COMPLETE. WAVE 0B CONTRACTS IN PLACE.** The live save is still the V2 profile. No Division, Fractions, Algebra, or UI.
 
 V2 stays on its own line ([docs/v2/PLAN.md](../v2/PLAN.md)). V3 work lands on a new branch. It does not retune V2, and it does not deploy over the app kids are testing.
 
@@ -51,8 +51,8 @@ Wave 7   Kid test: Mikaela, Adrian, friends
 
 | Wave | Gate |
 |---|---|
-| 0A | A fresh reviewer answers the questions below, including O5. Owner accepts or revises. No code. |
-| 0B | Accepted shapes exist as types. Multiplication is expressible with no behavior change. Social types are not in the engine. |
+| 0A | **Complete.** Findings accepted, O5 closed, consistency check clean. |
+| 0B | **Contracts in place.** Types, instance suppression, allowance clamp, household stamp, and the per-skill XP frontier are in the engine with tests. Multiplication behavior is unchanged. The app still loads the V2 profile. No new skill plugin. No UI. Social types stay out of the engine. |
 | 1 | Tokens and components render without skill code. Registry loads Multiplication only. A V2 fixture becomes a V3 profile with progress intact, in tests. |
 | 2 | Each new skill generates questions, grades them, and emits distractors. Tests do not boot the app. |
 | 3 | One play loop runs a scripted session for every shipped skill. XP and records still do not write academic state. |
@@ -72,23 +72,22 @@ Wave 7   Kid test: Mikaela, Adrian, friends
 
 ---
 
-## Wave 0A questions
+## Wave 0A outcome
 
-The reviewer attacks the docs. They do not invent a second mastery system to be helpful, and they do not start a plugin.
+The review's findings are accepted with the refinements now written through this set. O5 is closed: one status model, instance-scoped suppression, completion clamp, difficulty outside status.
 
-1. Does the concept abstraction generalize learning semantics, or only the TypeScript shapes?
-2. Can one concept appear in more than one level without a second mastery record?
-3. Can Fractions reach mastered on repeated easy variants while failing harder instances of the same concept?
-4. Can Algebra do the same?
-5. Is question-instance difficulty needed inside evidence, or is it enough as a generator input, without a second mastery system?
-6. Can a V2 → V3 migration replay after V3 has newer progress?
-7. Can two local profiles leak progress, records, or XP into each other?
-8. Does any shipped skill require Play, Results, XP, Records, or Session to branch on `skillId`?
-9. Do distractor and misconception details stay generic, with no curriculum rules inside the engine?
-10. Does any Stitch-derived UI component compute academic or XP state, or does it only render engine output?
+The consistency check looks only for contradictions among these decisions. It does not reopen O5 and it does not start a plugin.
 
-Also still in scope: a skill that cannot plug into the session loop, a migration that recomputes mastery instead of mapping it, and any social feature that implies a backend.
+## Wave 0B
 
-## After 0A
+Implement the frozen contracts and the two platform behaviors, with tests:
 
-Bring findings and proposed responses to the owner before Wave 0B or any other V3 implementation. V2 stays runnable the whole time.
+- `instanceKey` required on an evidence-eligible question. Multiplication sets it to the canonical concept id. A miss suppresses that instance only. Regression: multiplication evidence unchanged; `3/8|5/8` does not suppress `7/12|11/12`; repeating the missed instance still follows the existing rule.
+- Allowance clamp. Gating sizes 1, 2, 3, and the real multiplication levels. Multiplication outcomes unchanged.
+- Learner-owned `skills`, `player`, `records`, `rawLog`, `sessionLog`, `lastActivePath`, and pending reinforcements. Household holds the roster, the active learner pointer, and the migration stamp only.
+- Migration stamp includes source, completion, and migrated learner id. Deleted-learner case does not rerun migration.
+- Existing `AnswerType` names. `LevelDef` gains concept fields and keeps `index`, `kind`, and `title`. Multiplication fact lists stay until the ladder is proven on concept ids.
+- `EvidenceMarksView`. Distractor context is not a full profile.
+- XP frontier is per skill. Daily record bonus is per learner. The record is saved even when the bonus is spent.
+
+Do not build Division, Fractions, Algebra, or UI in this wave. V2 stays runnable.

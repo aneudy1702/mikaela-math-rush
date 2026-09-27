@@ -1,6 +1,6 @@
 # Math Rush V3 — Architecture
 
-Status: **APPROVED FOR WAVE 0A REVIEW.** Shapes below are the direction the reviewer must attack. They are not code, and they are not frozen, until the owner accepts the 0A findings.
+Status: **WAVE 0A COMPLETE.** The shapes below are the Wave 0B contracts. The running save is still the V2 profile until migration. New skill plugins and UI are not this wave.
 
 V2 already has a skill interface, a question type, and a single optional concept hook. V3 promotes that hook from "the multiplication fact this question is about" into the unit of mastery for every skill. It does not replace the learning algorithm.
 
@@ -61,21 +61,34 @@ interface LearningConcept {
 interface LevelDef {
   id: string
   skillId: string
+  index: number
+  kind: 'table' | 'mixed' | 'speed'
+  title: string
   conceptIds: string[]
-  gatingConceptIds?: string[]
-  introConceptIds?: string[]
+  gatingConceptIds: string[]
+  introConceptIds: string[]
 }
 
 interface Question {
   id: string
   skillId: string
   conceptIds: string[]
-  prompt: QuestionPrompt
-  answer: AnswerDefinition
+  /** Semantic instance. Required. Independent of choice order and other presentation. */
+  instanceKey: string
   difficulty: number
+  prompt: QuestionPrompt
+  answerType: AnswerType
+  correctAnswer: unknown
+  choices?: AnswerChoice[]
   metadata?: Record<string, unknown>
 }
 ```
+
+`AnswerType` is the list already in the engine: `numeric`, `multiple-choice`, `fraction`, `text`, `visual-selection`. V3 does not rename these. `multiple-choice` is the default. `fraction` is a stacked fraction choice. `visual-selection` is a diagram tile. `numeric` stays available and is not the default. `text` stays in the union because it already exists; no V3 skill needs a new member to ship.
+
+`LevelDef` keeps `index`, `kind`, and `title` because level order, mixed-versus-table completion, and the ladder UI read them. Multiplication-only lists (`tables`, `tableFactIds`, `ownedFactIds`, and the fact-id copies of gating and intro) stay until evidence is keyed by concept id. Until then, table completion still reads `gatingFactIds`. `gatingConceptIds` is that same membership written as concept ids, and the allowance clamp uses that count. Wave 0B adds the concept fields. It does not delete the fact fields in the same step.
+
+Owned facts in V2 are gating plus intro. That reconstruction stays valid, so a separate `ownedConceptIds` field is not required.
 
 **Levels contain concepts. Concepts do not contain levels.** (O7)
 
@@ -89,27 +102,32 @@ division.fact.56÷7  inverse →  multiplication.fact.7x8
 
 There is no `relatedMultiplicationFactId`. The session engine does not branch on `inverse` unless a future selection strategy explicitly reads relationships. Division's plugin may use the link when it builds distractors. The engine stays skill-blind.
 
-Wave 0B turns this sketch into types that match the existing `Question` / `Answer` / `Result` contracts, instead of a second parallel question model. `conceptIdFor` becomes required and may return every concept the question exercises. Multiplication's canonical-id rule (D9) stays: `8×7` and `7×8` are one concept.
+Wave 0B turns this sketch into types on the existing `Question` / `Answer` / `Result` contracts. There is no second question model and no `AnswerDefinition`. `question.conceptIds` lists every concept the question exercises. Multiplication's `conceptIdFor` still returns the canonical fact id (`7x8`) because live evidence and selection are keyed that way. `conceptIds` and `instanceKey` use `multiplication.fact.7x8`, so `8×7` and `7×8` stay one instance. Suppression reads `instanceKey` and falls back to `factId` when an older attempt has none.
 
-### What "one concept" means (O5, not solved here)
+### One status model (O5, closed)
 
-| Skill | One concept is | Example |
+| Skill | One concept is | Instance |
 |---|---|---|
-| Multiplication | One deterministic canonical fact | `multiplication.fact.7x8` |
-| Fractions | A strategy, practiced by many instances | `fractions.compare.same-denominator` covers both 3/8 vs 5/8 and 7/12 vs 11/12 |
-| Algebra | A procedure, across unlimited equations | `algebra.one-step.addition` covers both `x + 4 = 11` and `x + 17 = 39` |
+| Multiplication | One canonical fact | `instanceKey` equals the concept id, so `7×8` and `8×7` stay one instance |
+| Division | One fact, linked to multiplication by an `inverse` relationship | the division fact's own instance |
+| Fractions | A strategy | `3/8\|5/8` and `7/12\|11/12` are different instances of `fractions.compare.same-denominator` |
+| Algebra | A procedure | `x+4=11` and `x+17=39` are different instances of `algebra.one-step.addition` |
 
-V2's status rules were written for the first row. A correct easy fraction and a missed harder fraction currently update the same concept. That may be what we want. It also changes what "3 of the last 4" is evidence of.
+`instanceKey` names the semantic question. It does not include choice order or other presentation.
 
-The 0A reviewer must answer:
+V2 suppresses later attempts of the same fact after a miss in the session, because the reveal showed that fact. V3 suppresses later attempts of the same `instanceKey`. A miss on `3/8|5/8` does not suppress `7/12|11/12`. Re-presenting the missed instance still follows the existing replay rule.
 
-> Does the existing V2 evidence/status model still mean the same useful thing when the concept is a strategy instead of a fixed fact?
+There is no `EvidencePolicy` type. Status order, the window, spacing, and "latency never decides mastery" stay the V2 rules, applied to concepts. Difficulty is a generation and selection input. Mastery math does not read it. Each strategy plugin, when it is built, needs deterministic tests that its generator covers the intended instance range. That is not a second evidence axis. If a concept later proves too coarse, that is a new decision.
 
-If yes, one learning policy covers all three skills. Question `difficulty` can still steer which instance is picked, without becoming a second mastery axis.
+### Level completion clamp
 
-If no, stop. The smallest fix is a platform-level evidence policy, for example `classify(attempts) → status`, with Multiplication as the existing V2 policy. Do not add that type unless the review shows the single policy fails. A plugin must not invent its own mastery score or hidden evidence rules.
+The existing allowance is `max(allowanceMin, floor(allowanceFraction × n))`. V3 clamps it:
 
-Creating thousands of fraction concepts to fake fact-level granularity is not the alternative on the table. The open idea, if a single concept is too coarse, is concept plus instance difficulty, still inside one status model.
+```ts
+allowance = Math.min(existingAllowance, Math.max(0, gatingConceptCount - 1))
+```
+
+A level with one gating concept has allowance 0, so that concept must be mastered. Multiplication's real ladders stay on the same allowance they have today. Tests cover gating sizes 1, 2, and 3, plus those real levels.
 
 ### What stays algorithmically
 
@@ -132,7 +150,7 @@ A skill plugin owns:
 - its concept catalog and level ladder
 - question generation
 - answer evaluation
-- `generateDistractors(question, learner)`
+- `generateDistractors(question, context)` where `context` is the smallest explicit slice the plugin needs (the concepts on the question and their status). It is not a `LearnerProfile`. The plugin does not read another skill, the raw log, XP, or records to invent a private score.
 
 Distractors are part of the learning engine. A wrong choice should be a plausible misconception. (O9)
 
@@ -161,7 +179,7 @@ The raw attempt stores the selected choice id, whether it was correct, and `misc
 
 `3x + 5 = 20` is out of V3 scope (two-step).
 
-Level completion for Multiplication stays V2 rules R1–R5, read off `gatingConceptIds`. Whether Fractions and Algebra can use that same status to decide completion is part of O5, not a per-plugin invention.
+Level completion stays rules R1–R5, with the allowance clamp above. While multiplication evidence is keyed by fact id, R1 reads `gatingFactIds`. `gatingConceptIds` is that same set in concept-id form. New skills use it once their evidence is keyed that way. A plugin does not supply its own completion score.
 
 ---
 
@@ -177,7 +195,7 @@ Grade band
 
 Grade band is metadata for recommendations. A younger learner can move ahead. An older learner can practice earlier material. The home screen reads grade to suggest a path. It does not hide a skill because of grade.
 
-`LevelDef` cannot stay a list of times-table fact ids if Division, Fractions, and Algebra share it. The concept list above is the replacement. The multiplication adapter fills today's gating, intro, and owned sets from `gatingConceptIds` and `introConceptIds` so V2 tests still describe the same ladder.
+`LevelDef` gains concept membership beside the existing multiplication fact lists. Those fact lists remain until Multiplication's ladder tests pass on the concept fields alone. `kind` still selects table rules versus mixed consolidation.
 
 ---
 
@@ -193,24 +211,41 @@ interface LocalLearnerIdentity {
   avatarId?: string
 }
 
+// TypeScript name: LearnerProfileV3, beside the live V2 LearnerProfile.
 interface LearnerProfile {
   identity: LocalLearnerIdentity
-  /** Last skill and level this learner played. Not a privileged academic path. */
   lastActivePath?: { skillId: string; levelId: string }
   skills: Record<string, SkillProgress>
-  player: {
-    xp: number
-    level: number
-    badges: Badge[]
-  }
+  player: PlayerProgress
+  records: Record<string, PersonalRecord>
+  rawLog: RawLog
+  sessionLog: SessionLogEntry[]
+  pendingReinforcements: PendingReinforcement[]
+}
+
+interface HouseholdMigrationStamp {
+  source: 'learner-v2'
+  completed: true
+  completedAtMs: number
+  migratedLearnerId: string
+}
+
+interface Household {
+  activeLearnerId: string | null
+  learners: Record<string, LearnerProfile>
+  migration?: HouseholdMigrationStamp
 }
 ```
 
 No password, email, parent account, or sync fields exist on these types.
 
-`player` is global across skills **for that learner**. It is not global across the household. Academic progress and records stay per learner, per skill. A Division time never compares with a Multiplication time, and Mikaela's XP never appears on Adrian's profile.
+No gameplay lives in `Household`. It holds only `activeLearnerId`, the roster, and `migration`. Skills, XP, badges, records, attempts, sessions, and pending practice sit on the learner. Switching learners loads a different profile. It does not merge.
 
-Switching learners is a load of a different profile. It is not a merge.
+### XP frontier (O11)
+
+Practice-versus-replay classification uses `progressLevelId` of the **skill being played**. Finished Multiplication does not mark new Division as replay. Finished Division does not mark Algebra as replay.
+
+The resulting XP is added to that learner's `player`. The daily record XP bonus stays once per learner per calendar day (`lastRecordXpDayKey`). A later record the same day is still stored. Only the bonus is skipped.
 
 ---
 
@@ -218,18 +253,31 @@ Switching learners is a load of a different profile. It is not a merge.
 
 ```ts
 type AnswerType =
+  | 'numeric'
   | 'multiple-choice'
-  | 'numeric-input'
-  | 'fraction-choice'
-  | 'visual-choice'
+  | 'fraction'
+  | 'text'
+  | 'visual-selection'
 ```
 
 | Type | V3 |
 |---|---|
-| Multiple choice | Default for fact-like skills. |
-| Visual choice | Required for the early fraction levels. |
-| Fraction choice | Used where the choice itself is a fraction, if visual choice is the wrong shape. Wave 0 picks one representation and deletes the duplicate. |
-| Numeric input | Still supported. Not the default. |
+| `multiple-choice` | Default. |
+| `visual-selection` | Diagram tiles, including early fraction levels. |
+| `fraction` | The choice itself is a stacked fraction. |
+| `numeric` | Still supported. Not the default. |
+| `text` | Already in the engine. No V3 skill requires it. |
+
+The evidence component receives academic state and does not derive it:
+
+```ts
+interface EvidenceMarksView {
+  marks: 0 | 1 | 2 | 3
+  mastered: boolean
+}
+```
+
+V2's `MASTERED_DISPLAY_VALUE` (4) is a display encoding for the current screens. V3 pips do not read that integer as a fourth mark. Wave 0B defines `EvidenceMarksView`. It does not rebuild the play screen.
 
 The renderer is a registry of answer components keyed by `AnswerType`. Play does not switch on `skillId`.
 
@@ -264,6 +312,6 @@ The persistence rule carries forward: no path silently changes mastery, XP, badg
 
 ## Wave 0 exit
 
-Wave 0A is done when the reviewer has answered the questions in [PLAN.md](PLAN.md), including O5, and the owner has accepted or revised the findings.
+Wave 0A is complete. The consistency check on this revision was clean.
 
-Wave 0B is done when those accepted shapes exist as types: concept, level membership, relationships, question, answer choice, misconception on the attempt, household roster, and the V2→V3 migration map. Multiplication is described entirely in those types without a behavior change. Social types are not required for that exit.
+Wave 0B is done when these exist as types, with Multiplication's current behavior intact: concept, level membership, relationships, `instanceKey`, answer choice, misconception on the attempt, the allowance clamp, `EvidenceMarksView`, the narrow distractor context, the household roster and migration stamp, and per-skill XP frontier. Social types are not part of that exit. New skill plugins and UI are not part of that exit.

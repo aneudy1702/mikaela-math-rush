@@ -12,13 +12,28 @@ export type QuestionPrompt =
   | { type: 'text'; text: string }
   | { type: 'visual'; asset: string; alt: string }
 
+export interface AnswerChoice {
+  id: string
+  value: unknown
+  misconceptionId?: string
+}
+
 export interface Question {
   id: string
   skillId: string
+  /** Concepts this question can count as evidence for. */
+  conceptIds: string[]
+  /**
+   * Semantic question instance. Required on every evidence-eligible question.
+   * Not choice order or other presentation. Multiplication uses the concept id,
+   * so 7×8 and 8×7 are one instance.
+   */
+  instanceKey: string
   difficulty: number
   prompt: QuestionPrompt
   answerType: AnswerType
   correctAnswer: unknown
+  choices?: AnswerChoice[]
   metadata?: Record<string, unknown>
 }
 
@@ -48,8 +63,8 @@ export interface MathSkill {
   generateQuestion(request: QuestionRequest): Question
   evaluateAnswer(question: Question, answer: Answer): Result
   /**
-   * D9 generic hook: the canonical concept (fact) ID a question exercises, e.g.
-   * 8 × 7 → "7x8" for multiplication. Normalization is skill-specific.
+   * Canonical id used by live selection. Multiplication still returns the fact id
+   * (`7x8`). V3 concept membership lives on `question.conceptIds`.
    */
   conceptIdFor?(question: Question): string
 }

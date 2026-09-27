@@ -11,6 +11,9 @@ import { MULTIPLICATION_SKILL_ID } from '../content/multiplication/plugin'
 const MULTIPLICATION_GRADE = 3
 
 function freezeLevel(level: LevelDef): LevelDef {
+  Object.freeze(level.conceptIds)
+  Object.freeze(level.gatingConceptIds)
+  Object.freeze(level.introConceptIds)
   Object.freeze(level.tables)
   Object.freeze(level.tableFactIds)
   Object.freeze(level.ownedFactIds)

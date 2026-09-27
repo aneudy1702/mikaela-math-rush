@@ -20,7 +20,7 @@ import type {
   SkillProgress,
   XpBreakdown,
 } from '../contracts'
-import { SESSION_LENGTHS, recordKeyId } from '../contracts'
+import { SESSION_LENGTHS, evidenceInstanceKey, recordKeyId } from '../contracts'
 import { getCurriculum, getLevel, nextLevel } from '../curriculum'
 import {
   appendEvidenceBuffer,
@@ -754,8 +754,13 @@ export class LevelSessionEngine {
     const result = this.skill.evaluateAnswer(cur.question, { value, respondedAtMs: atMs, latencyMs })
     const correct = result.correct
     const given = numericGiven(result.given)
+    const instanceKey = evidenceInstanceKey({
+      factId: cur.factId,
+      instanceKey: cur.question.instanceKey,
+    })
     const attempt: RawAttempt = {
       factId: cur.factId,
+      instanceKey: cur.question.instanceKey,
       a: presentedFactor(cur.question, 'a'),
       b: presentedFactor(cur.question, 'b'),
       correct,
@@ -769,8 +774,8 @@ export class LevelSessionEngine {
       source: cur.source,
       isReplay: this.isReplay,
     }
-    const counted = !this.missedThisSession.has(cur.factId)
-    if (!correct) this.missedThisSession.add(cur.factId)
+    const counted = !this.missedThisSession.has(instanceKey)
+    if (!correct) this.missedThisSession.add(instanceKey)
 
     const profile = this.profile
     profile.rawLog.attempts.push(attempt)

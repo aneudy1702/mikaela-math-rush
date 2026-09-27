@@ -2,9 +2,11 @@ import {
   CORE_MAX_FACTOR,
   canonicalFactId,
   levelIdOf,
+  multiplicationConceptId,
   parseFactId,
   type LevelDef,
 } from '../../contracts'
+import { MULTIPLICATION_SKILL_ID } from './plugin'
 
 /** Every core fact (factors 1–10) as a canonical ID, ordered by (min, max): 55 IDs. */
 function coreFactIds(): string[] {
@@ -54,9 +56,11 @@ export function buildMultiplicationLevels(): LevelDef[] {
     const gatingFactIds = ownedFactIds.filter((f) => !introFactIds.includes(f))
     levels.push({
       id: levelIdOf(index),
+      skillId: MULTIPLICATION_SKILL_ID,
       index,
       kind: 'table',
       title: spec.title,
+      ...conceptMembership(gatingFactIds, introFactIds),
       tables: [...spec.tables],
       tableFactIds,
       ownedFactIds,
@@ -74,9 +78,11 @@ export function buildMultiplicationLevels(): LevelDef[] {
     const index = levels.length + 1
     levels.push({
       id: levelIdOf(index),
+      skillId: MULTIPLICATION_SKILL_ID,
       index,
       kind: t.kind,
       title: t.title,
+      ...conceptMembership([], []),
       tables: [],
       tableFactIds: [...all],
       ownedFactIds: [],
@@ -86,4 +92,12 @@ export function buildMultiplicationLevels(): LevelDef[] {
   }
 
   return levels
+}
+
+function conceptMembership(gatingFactIds: readonly string[], introFactIds: readonly string[]) {
+  return {
+    conceptIds: [...gatingFactIds, ...introFactIds].map(multiplicationConceptId),
+    gatingConceptIds: gatingFactIds.map(multiplicationConceptId),
+    introConceptIds: introFactIds.map(multiplicationConceptId),
+  }
 }

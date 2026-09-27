@@ -84,17 +84,24 @@ src/ui/
 
 Tokens are the only place a hex value or a motion duration is introduced. Primitives have no learning logic. Game components display engine output; they do not compute mastery, XP, or the next question. Screens compose those pieces.
 
-Evidence pips render engine marks. They do not compute them.
+Evidence pips render engine output. They do not compute it.
 
-```text
-○ ○ ○   New
-● ○ ○   Evidence 1
-● ● ○   Evidence 2
-● ● ●   Evidence 3
-★       Mastered
+```ts
+interface EvidenceMarksView {
+  marks: 0 | 1 | 2 | 3
+  mastered: boolean
+}
 ```
 
-Three cyan marks, then a separate gold state. There is no fourth pip. Gold means **currently mastered**. It can leave if the learning state leaves mastered. It is not a lock, and it is not XP.
+```text
+○ ○ ○   marks 0, mastered false
+● ○ ○   marks 1, mastered false
+● ● ○   marks 2, mastered false
+● ● ●   marks 3, mastered false
+★       mastered true
+```
+
+Three cyan marks, then a separate gold state. There is no fourth pip. Gold means **currently mastered**. It can leave if `mastered` becomes false. It is not a lock, and it is not XP. A single integer of 4 is not this contract.
 
 ---
 

@@ -33,6 +33,8 @@ export {
   type StoredProfileParse,
 } from './storage'
 
+export { applyHouseholdMigration, type HouseholdMigrationInput, type HouseholdMigrationResult } from './householdMigration'
+
 export {
   INFERRED_SESSION_PREFIX,
   isV1ProfileLike,

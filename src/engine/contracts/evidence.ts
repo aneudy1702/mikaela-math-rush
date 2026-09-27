@@ -20,8 +20,17 @@ export type AttemptSource = 'draw' | 'reintroduce' | 'later-check' | 'placement'
  * Questions discarded on hide are NOT attempts (see SessionRecord.discardedOnHide).
  */
 export interface RawAttempt {
-  /** Canonical fact ID (D9). */
+  /** Canonical fact ID (D9). Live multiplication evidence is still keyed by this. */
   factId: string
+  /**
+   * Semantic question instance. Absent on V2 attempts; counting then uses `factId`.
+   * The V2 raw-log codec does not store this yet. New in-memory attempts set it.
+   */
+  instanceKey?: string
+  /** Selected choice, when the question offered choices. */
+  selectedChoiceId?: string
+  /** Misconception of that choice, when it had one. */
+  misconceptionId?: string
   /** Presented orientation "a × b". null only for migrated v1 attempts (unknown). */
   a: number | null
   b: number | null

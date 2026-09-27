@@ -88,7 +88,9 @@ fractions.equivalent
 fractions.compare.mixed
 ```
 
-These ids are **strategy-level**. `fractions.compare.same-denominator` is updated by both an easy pair (3/8 vs 5/8) and a harder pair (7/12 vs 11/12). That is coarser than `multiplication.fact.7x8`. Whether V2's status rules still mean the right thing at this grain is O5. This doc does not split the concept into one id per fraction pair, and it does not invent a fractions mastery score.
+These ids are **strategy-level**. `fractions.compare.same-denominator` is one concept. `3/8|5/8` and `7/12|11/12` are different `instanceKey`s, so a miss on the first does not throw away evidence from the second. Status rules are the shared V3 rules (O5, closed). This doc does not split the concept into one id per fraction pair, and it does not invent a fractions mastery score.
+
+When the fractions plugin is built, its tests must show the generator covers the intended pairs, not only the easiest one. Those tests are not part of Wave 0B. A one-concept level completes only when that concept is mastered.
 
 Levels 1 and 3 need visual choice. Later levels may be multiple choice or fraction choice. The prompt types already allowed in V2 (`expression`, `text`, `visual`) are the ones V3 uses; a new prompt type is a contract change.
 
@@ -118,7 +120,7 @@ algebra.one-step.subtraction
 algebra.one-step.division
 ```
 
-Same grain problem as fractions, and the same open question (O5). `algebra.one-step.addition` covers `x + 4 = 11` and `x + 17 = 39`. V3 is explicitly testing whether strategy-level concepts can share the multiplication mastery rules. It is not pretending those two grains are the same thing.
+Same grain as fractions, under the same closed rule (O5). `algebra.one-step.addition` is one concept. `x+4=11` and `x+17=39` are different instances. The plugin, when built, tests that the generator covers that range. Mastery math does not.
 
 Distractors are the mistakes a learner actually makes (operating on the wrong side, forgetting to invert), tagged with a `misconceptionId`, not nearby integers.
 

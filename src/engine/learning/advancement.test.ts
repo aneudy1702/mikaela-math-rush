@@ -12,6 +12,7 @@ import type {
   SkillProgress,
 } from '../contracts'
 import { RULES, levelIdOf } from '../contracts'
+import { buildMultiplicationLevels } from '../content/multiplication/levels'
 import {
   MASTERED_DISPLAY_VALUE,
   applyAttemptToEvidence,
@@ -22,6 +23,7 @@ import {
   evaluateAdvancement,
   evaluateMixedLevel,
   evaluateTableLevel,
+  evidenceMarksView,
   factDisplayValue,
   factMarks,
   factStatus,
@@ -47,6 +49,7 @@ interface AttemptOpts {
   levelId?: string | null
   source?: AttemptSource
   day?: number
+  instanceKey?: string
 }
 
 let clock = 0
@@ -67,6 +70,7 @@ function att(
     atMs: T0 + (opts.day ?? 0) * DAY + clock,
     sessionId,
     sessionInferred: opts.inferred ?? false,
+    ...(opts.instanceKey ? { instanceKey: opts.instanceKey } : {}),
     levelId: opts.levelId === undefined ? 'L1' : opts.levelId,
     mode: 'practice',
     source: opts.source ?? 'draw',
@@ -123,6 +127,24 @@ describe('countedFlags / countedAttempts (D2)', () => {
     ]
     expect(countedFlags(log)).toEqual([true, true, false, false, false, true, false, true, true])
     expect(countedAttempts(log)).toEqual([log[0], log[1], log[5], log[7], log[8]])
+  })
+
+  it('a miss suppresses that instance only, not every instance of the concept', () => {
+    const concept = 'fractions.compare.same-denominator'
+    const log = [
+      att(concept, false, 's', { instanceKey: '3/8|5/8' }),
+      att(concept, true, 's', { instanceKey: '7/12|11/12' }),
+      att(concept, true, 's', { instanceKey: '3/8|5/8' }),
+    ]
+    expect(countedFlags(log)).toEqual([true, true, false])
+  })
+
+  it('re-presenting the missed instance still does not count', () => {
+    const log = [
+      att('multiplication.fact.7x8', false, 's', { instanceKey: 'multiplication.fact.7x8' }),
+      att('multiplication.fact.7x8', true, 's', { instanceKey: 'multiplication.fact.7x8' }),
+    ]
+    expect(countedFlags(log)).toEqual([true, false])
   })
 
   it('the miss itself counts, and misses in other sessions do not leak', () => {
@@ -274,11 +296,16 @@ describe('evidence marks (D10)', () => {
     const flags = countedFlags(log)
     let ev = emptyFactEvidence('7x8')
     const display: number[] = []
+    const views: ReturnType<typeof evidenceMarksView>[] = []
     log.forEach((a, i) => {
       ev = applyAttemptToEvidence(ev, a, flags[i]!)
       display.push(factDisplayValue(ev))
+      views.push(evidenceMarksView(ev))
     })
     expect(display).toEqual([1, 2, 3, 4, 4, 2])
+    expect(views[3]).toEqual({ marks: 3, mastered: true })
+    expect(views[5]).toEqual({ marks: 2, mastered: false })
+    expect(views.every((view) => view.marks <= 3)).toBe(true)
     expect(ev.everMastered).toBe(true)
   })
 
@@ -300,9 +327,13 @@ function tableLevel(index: number, gating: number, extraTable = 0): LevelDef {
   const t = Array.from({ length: extraTable }, (_, i) => `t${index}_${i}`)
   return {
     id: levelIdOf(index),
+    skillId: 'test',
     index,
     kind: 'table',
     title: `L${index}`,
+    conceptIds: g,
+    gatingConceptIds: g,
+    introConceptIds: [],
     tables: [index],
     tableFactIds: [...g, ...t],
     ownedFactIds: g,
@@ -355,6 +386,33 @@ describe('evaluateTableLevel (D2 R1–R5)', () => {
     expect(fail.r1.pass).toBe(false)
     expect(fail.r2.pass && fail.r3.pass && fail.r4.pass && fail.r5.pass).toBe(true)
     expect(fail.pass).toBe(false)
+  })
+
+  it('allowance is 0, 1, 1 for gating sizes 1, 2, and 3', () => {
+    expect(levelAllowance(1)).toBe(0)
+    expect(levelAllowance(2)).toBe(1)
+    expect(levelAllowance(3)).toBe(1)
+
+    const one = tableLevel(1, 1)
+    const unmet = evaluateTableLevel(one, levelEvidence(one, 0), GOOD_BUFFER, 2)
+    expect(unmet.r1).toEqual({ n: 1, allowance: 0, mastered: 0, required: 1, pass: false })
+    expect(unmet.pass).toBe(false)
+
+    const met = evaluateTableLevel(one, levelEvidence(one, 1), GOOD_BUFFER, 2)
+    expect(met.r1).toEqual({ n: 1, allowance: 0, mastered: 1, required: 1, pass: true })
+    expect(met.pass).toBe(true)
+  })
+
+  it('real multiplication levels keep their required mastered counts', () => {
+    const required = buildMultiplicationLevels()
+      .filter((level) => level.kind === 'table')
+      .map((level) => {
+        const n = level.gatingFactIds.length
+        expect(level.gatingConceptIds).toHaveLength(n)
+        expect(level.skillId).toBe('multiplication')
+        return n - levelAllowance(n)
+      })
+    expect(required).toEqual([8, 7, 6, 5, 4, 3, 2, 2])
   })
 
   it('R2: an unfinished gating fact may be learning or new, never struggling', () => {

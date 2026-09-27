@@ -1,6 +1,6 @@
 # Math Rush V3 — Migration
 
-Status: **ACCEPTED REQUIREMENT (O10).** This is its own implementation track. It is not a side effect of the new profile type.
+Status: **ACCEPTED REQUIREMENT (O10).** Wave 0B adds the household stamp and the entry point that refuses to rerun after that stamp, including after the migrated learner is deleted. Rewriting stored fact ids to concept ids waits until the running engine reads evidence by concept id. This is not a side effect of loading today's V2 save.
 
 ---
 
@@ -58,15 +58,33 @@ Chosen-distractor and `misconceptionId` are empty on historical attempts. V2 had
 
 ## Idempotency (O10)
 
-Migration runs when a V2 blob is present and no V3 profile for that learner exists yet.
+Migration is stamped on the household, not inferred from whether the learner still exists.
+
+```ts
+interface HouseholdMigrationStamp {
+  source: 'learner-v2'
+  completed: true
+  completedAtMs: number
+  migratedLearnerId: string
+}
+```
+
+The entry point runs only when the V2 blob is present and `household.migration.completed` is not already true. A retry, a reload, or a crash after the stamp is written does not run it again.
 
 ```text
 migration(migration(v2Profile)) must not happen
 ```
 
-A retry, a reload, a crash halfway through, or a leftover V2 backup must recognize that V3 already exists and stop. Newer V3 progress, XP, records, and answer history are never replaced by a second pass over the V2 backup.
+Deleting the migrated learner does not clear the stamp and does not recreate that learner from the V2 backup. A later explicit restore may read the backup. Migration itself does not.
 
-The required test: migrate a fixture, play further in the V3 profile (new attempts, new XP), run the migration entry point again, and assert the post-play V3 state is unchanged. A second learner added after migration is also unchanged.
+The V2 key is never written or deleted by this path.
+
+Tests:
+
+1. Migrate a fixture, play further (new attempts, new XP), run the entry point again. The post-play V3 state is unchanged. A second learner added after migration is unchanged.
+2. Migrate, delete the migrated learner, run the entry point again. The learner is not recreated. The stamp remains. The V2 blob is byte-for-byte unchanged.
+
+Migrated multiplication attempts use the concept id as `instanceKey`, so their evidence matches V2. `misconceptionId` stays empty. Grade stays unset until O6 is asked.
 
 ---
 

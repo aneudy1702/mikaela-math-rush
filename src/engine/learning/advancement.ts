@@ -5,6 +5,7 @@ import type {
   FactComebackEvent,
   FactEvidence,
   FactMasteredEvent,
+  EvidenceMarksView,
   FactStatus,
   LevelCompletionChecks,
   LevelDef,
@@ -16,7 +17,7 @@ import type {
   SkillProgress,
   TableLevelChecks,
 } from '../contracts'
-import { RULES, SPEC_CONSTANTS, levelIndexOf } from '../contracts'
+import { RULES, SPEC_CONSTANTS, evidenceInstanceKey, levelIndexOf } from '../contracts'
 
 /**
  * D2 fact status, counted attempts, level completion (R1–R5, L9 option B + V4),
@@ -35,12 +36,16 @@ export const MASTERED_DISPLAY_VALUE = RULES.marksMax + 1
 
 // ---- counted attempts ------------------------------------------------------------------
 
-/** Counted flag per raw attempt (same order): no earlier miss of the same fact in the same session. */
+/**
+ * Counted flag per raw attempt (same order): no earlier miss of the same
+ * question instance in the same session. Older attempts have no instanceKey
+ * and still suppress by factId.
+ */
 export function countedFlags(rawLog: readonly RawAttempt[]): boolean[] {
   const missed = new Set<string>()
   const flags: boolean[] = []
   for (const a of rawLog) {
-    const key = `${a.sessionId}\u0000${a.factId}`
+    const key = `${a.sessionId}\u0000${evidenceInstanceKey(a)}`
     flags.push(!missed.has(key))
     if (!a.correct) missed.add(key)
   }
@@ -181,6 +186,16 @@ export function factMarks(evidence: FactEvidence | undefined): number {
 }
 
 /**
+ * V3 evidence pips. `mastered` is separate from the mark count.
+ * Current screens still use `factDisplayValue` (4 when mastered).
+ */
+export function evidenceMarksView(evidence: FactEvidence | undefined): EvidenceMarksView {
+  const raw = factMarks(evidence)
+  const marks = (raw <= 0 ? 0 : raw >= 3 ? 3 : raw) as 0 | 1 | 2 | 3
+  return { marks, mastered: factStatus(evidence) === 'mastered' }
+}
+
+/**
  * D10 display value (owner clarification): MASTERED_DISPLAY_VALUE (4) if mastered, else
  * factMarks (0–3). Falls back to the marks when mastery drops.
  */
@@ -204,12 +219,16 @@ export function isLikelyCorrect(evidence: FactEvidence | undefined): boolean {
 
 // ---- level completion ---------------------------------------------------------------------
 
-/** a = max(RULES.allowanceMin, ⌊RULES.allowanceFraction · n⌋). */
+/**
+ * Existing allowance, clamped so a level cannot complete with zero gating
+ * concepts mastered: min(existing, max(0, n − 1)).
+ */
 export function levelAllowance(gatingCount: number): number {
-  return Math.max(
+  const existing = Math.max(
     RULES.allowanceMin,
     Math.floor(RULES.allowanceFraction * gatingCount),
   )
+  return Math.min(existing, Math.max(0, gatingCount - 1))
 }
 
 function accuracyOf(entries: readonly EvidenceBufferEntry[]): number {
